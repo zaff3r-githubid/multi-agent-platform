@@ -6,193 +6,664 @@
   <title>Multi-Agent Platform</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
   <style>
+    /* ── Cyber Intelligence Color Palette ── */
+    :root {
+      --bg-primary:    #0B0F19;
+      --bg-secondary:  #0F172A;
+      --bg-card:       rgba(30, 41, 59, 0.85);
+      --bg-card-solid: #1E293B;
+      --bg-hover:      rgba(30, 41, 59, 0.95);
+      --border:        rgba(6, 182, 212, 0.2);
+      --border-bright: rgba(6, 182, 212, 0.5);
+
+      /* Core accent colors */
+      --cyan:          #06B6D4;
+      --cyan-glow:     rgba(6, 182, 212, 0.15);
+      --cyan-dim:      rgba(6, 182, 212, 0.08);
+
+      --green:         #10B981;
+      --green-glow:    rgba(16, 185, 129, 0.15);
+      --green-dim:     rgba(16, 185, 129, 0.08);
+
+      --amber:         #F59E0B;
+      --amber-glow:    rgba(245, 158, 11, 0.15);
+      --amber-dim:     rgba(245, 158, 11, 0.08);
+
+      --red:           #EF4444;
+      --red-glow:      rgba(239, 68, 68, 0.15);
+      --red-dim:       rgba(239, 68, 68, 0.08);
+
+      /* My design accents */
+      --purple:        #8B5CF6;
+      --purple-glow:   rgba(139, 92, 246, 0.15);
+      --purple-dim:    rgba(139, 92, 246, 0.08);
+      --blue:          #3B82F6;
+      --blue-dim:      rgba(59, 130, 246, 0.08);
+      --pink:          #EC4899;
+
+      /* Text */
+      --text-primary:  #F1F5F9;
+      --text-secondary:#94A3B8;
+      --text-dim:      #475569;
+
+      /* Font */
+      --font: 'Menlo', 'Monaco', 'SF Mono', 'Courier New', monospace;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-           background: #0f1117; color: #f0f0f0; }
 
-    /* ── Header ── */
-    .header { background: linear-gradient(135deg,#1a1d27,#2d3148);
-              padding: 20px 28px; border-bottom: 1px solid #2d3148;
-              display: flex; justify-content: space-between; align-items: center; }
-    .header h1 { font-size: 20px; font-weight: 700; }
-    .header p  { font-size: 12px; color: #9ca3af; margin-top: 3px; }
-    .live-dot  { display: flex; align-items: center; gap: 6px;
-                 font-size: 12px; color: #22c55e; }
-    .live-dot span { width: 8px; height: 8px; border-radius: 50%;
-                     background: #22c55e; animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+    body {
+      font-family: var(--font);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-size: 13px;
+      min-height: 100vh;
+    }
 
-    /* ── Alarm Banner ── */
-    #alarm-banner { display:none; background:#7f1d1d; border:1px solid #ef4444;
-                    padding:14px 28px; font-size:13px; color:#fca5a5; }
-    #alarm-banner b { color:#f87171; }
+    /* ── Subtle circuit grid background ─────────────────────────────────── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(6,182,212,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(6,182,212,0.03) 1px, transparent 1px);
+      background-size: 40px 40px;
+      pointer-events: none;
+      z-index: 0;
+    }
 
-    /* ── Tabs ── */
-    .tabs { display: flex; background: #13151f; border-bottom: 1px solid #2d3148;
-            padding: 0 28px; overflow-x: auto; }
-    .tab  { padding: 14px 20px; font-size: 13px; font-weight: 600; cursor: pointer;
-            color: #6b7280; border-bottom: 2px solid transparent; white-space: nowrap;
-            transition: all .2s; }
-    .tab:hover  { color: #e2e8f0; }
-    .tab.active { color: #60a5fa; border-bottom-color: #60a5fa; }
+    /* All content above the grid */
+    .hero, .tabs, .panel, #alarm-banner { position: relative; z-index: 1; }
 
-    /* ── Tab Panels ── */
-    .panel { display: none; padding: 24px 28px; }
+    /* ── Hero Banner ──────────────────────────────────────────────────────── */
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 200px;
+      overflow: hidden;
+      border-bottom: 1px solid var(--border-bright);
+    }
+
+    .hero-bg {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+    }
+
+    .hero-bg img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: center;
+      opacity: 0.45;
+      filter: saturate(1.6) brightness(0.85) hue-rotate(10deg);
+    }
+
+    .hero-agents {
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      height: 95%;
+      opacity: 0.5;
+      filter: saturate(1.4) brightness(1.1);
+      mix-blend-mode: screen;
+    }
+
+    /* Gradient overlay — fades hero into bg */
+    .hero::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        to bottom,
+        rgba(11,15,25,0.2) 0%,
+        rgba(11,15,25,0.75) 100%
+      );
+    }
+
+    .hero-content {
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 20px 28px;
+    }
+
+    .hero-title {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.04em;
+      text-shadow: 0 0 30px rgba(6,182,212,0.8), 0 0 60px rgba(6,182,212,0.3);
+      line-height: 1.2;
+    }
+
+    .hero-title span { color: var(--text-primary); }
+
+    .hero-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 5px;
+      letter-spacing: 0.05em;
+    }
+
+    .hero-sub b { color: var(--green); }
+
+    /* Top-right status badges */
+    .hero-badges {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      z-index: 3;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .hero-badge {
+      background: rgba(11,15,25,0.75);
+      border: 1px solid var(--cyan);
+      color: var(--cyan);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      backdrop-filter: blur(4px);
+    }
+
+    .live-badge {
+      background: rgba(16,185,129,0.1);
+      border: 1px solid var(--green);
+      color: var(--green);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 10px;
+      letter-spacing: 0.1em;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      backdrop-filter: blur(4px);
+    }
+
+    .live-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 1.5s infinite;
+      box-shadow: 0 0 6px var(--green);
+    }
+
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+    @keyframes glow-pulse {
+      0%,100%{ box-shadow: 0 0 8px var(--cyan), inset 0 0 8px rgba(6,182,212,0.05); }
+      50%{ box-shadow: 0 0 16px var(--cyan), inset 0 0 12px rgba(6,182,212,0.08); }
+    }
+
+    /* ── Alarm Banner ─────────────────────────────────────────────────────── */
+    #alarm-banner {
+      display: none;
+      background: var(--red-dim);
+      border-bottom: 1px solid var(--red);
+      padding: 10px 28px;
+      color: var(--red);
+      font-size: 12px;
+      letter-spacing: 0.03em;
+    }
+
+    #alarm-banner::before { content: '⚠ ALERT  '; color: var(--amber); font-weight: 700; }
+
+    /* ── Tabs ─────────────────────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      background: rgba(11,15,25,0.95);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      overflow-x: auto;
+      backdrop-filter: blur(8px);
+    }
+
+    .tab {
+      padding: 13px 18px;
+      font-size: 11px;
+      cursor: pointer;
+      color: var(--text-dim);
+      border-bottom: 2px solid transparent;
+      white-space: nowrap;
+      transition: all .2s;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .tab:hover  { color: var(--cyan); }
+    .tab.active {
+      color: var(--cyan);
+      border-bottom-color: var(--cyan);
+      text-shadow: 0 0 10px rgba(6,182,212,0.5);
+    }
+
+    /* ── Panels ───────────────────────────────────────────────────────────── */
+    .panel { display: none; padding: 20px 24px; }
     .panel.active { display: block; }
 
-    /* ── Cards / Grid ── */
-    .grid-3 { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr));
-              gap: 14px; margin-bottom: 22px; }
-    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit,minmax(340px,1fr));
-              gap: 14px; margin-bottom: 22px; }
-    .card   { background: #1a1d27; border: 1px solid #2d3148;
-              border-radius: 10px; padding: 16px; }
-    .card h3 { font-size: 11px; color: #9ca3af; text-transform: uppercase;
-               letter-spacing: .06em; margin-bottom: 10px; }
+    /* ── Grid layouts ─────────────────────────────────────────────────────── */
+    .grid-5 { display: grid; grid-template-columns: repeat(5,1fr); gap: 12px; margin-bottom: 18px; }
+    .grid-2 { display: grid; grid-template-columns: repeat(auto-fit,minmax(340px,1fr)); gap: 14px; margin-bottom: 18px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 14px; margin-bottom: 18px; }
 
-    /* ── Metrics ── */
-    .metric-val { font-size: 30px; font-weight: 700; color: #60a5fa; }
-    .metric-val.warn { color: #f59e0b; }
-    .metric-val.crit { color: #ef4444; }
+    /* ── Cards ────────────────────────────────────────────────────────────── */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      backdrop-filter: blur(8px);
+      transition: border-color .2s, box-shadow .2s;
+    }
 
-    /* ── Agent rows ── */
-    .agent-row { display:flex; justify-content:space-between; align-items:center;
-                 padding: 10px 0; border-bottom: 1px solid #2d3148; font-size:13px; }
+    .card:hover {
+      border-color: var(--border-bright);
+      box-shadow: 0 0 20px rgba(6,182,212,0.05);
+    }
+
+    .card h3 {
+      font-size: 10px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 12px;
+      opacity: 0.8;
+    }
+
+    /* ── Metric cards ─────────────────────────────────────────────────────── */
+    .metric-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      backdrop-filter: blur(8px);
+      transition: all .2s;
+    }
+
+    .metric-card:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 20px var(--cyan-glow);
+    }
+
+    .metric-label {
+      font-size: 9px;
+      color: var(--cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 8px;
+      opacity: 0.7;
+    }
+
+    .metric-val {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
+      line-height: 1;
+      text-shadow: 0 0 20px rgba(241,245,249,0.2);
+    }
+
+    .metric-val.ok   { color: var(--cyan);  text-shadow: 0 0 15px rgba(6,182,212,0.4); }
+    .metric-val.warn { color: var(--amber); text-shadow: 0 0 15px rgba(245,158,11,0.4); }
+    .metric-val.crit { color: var(--red);   text-shadow: 0 0 15px rgba(239,68,68,0.4); }
+
+    /* ── Agent rows ───────────────────────────────────────────────────────── */
+    .agent-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(6,182,212,0.08);
+      transition: background .15s;
+    }
+
     .agent-row:last-child { border-bottom: none; }
-    .agent-name   { font-weight: 600; color: #e2e8f0; }
-    .agent-detail { color: #9ca3af; font-size: 11px; margin-top: 2px; }
+    .agent-row:hover { background: var(--cyan-dim); padding-left: 6px; border-radius: 4px; }
 
-    /* ── Badges ── */
-    .badge { display:inline-block; padding:2px 10px; border-radius:20px;
-             font-size:11px; font-weight:600; }
-    .badge-success { background:#052e16; color:#22c55e; }
-    .badge-error   { background:#2d0a0a; color:#ef4444; }
-    .badge-running { background:#172554; color:#60a5fa; }
-    .badge-never   { background:#1c1917; color:#a8a29e; }
-    .badge-restarted{ background:#2d1f00; color:#f59e0b; }
+    .agent-name {
+      font-weight: 700;
+      color: var(--text-primary);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
 
-    /* ── Buttons ── */
-    button { background:#2d3148; border:1px solid #3d4468; color:#e2e8f0;
-             padding:6px 14px; border-radius:6px; font-size:12px;
-             cursor:pointer; margin-left:6px; transition: background .2s; }
-    button:hover { background:#3d4468; }
-    button.run-btn { background:#1e3a5f; border-color:#2563eb; color:#93c5fd; }
-    button.run-btn:hover { background:#2563eb; color:white; }
+    .agent-name::before { content: '▸ '; color: var(--cyan); }
 
-    /* ── Queue indicator ── */
-    .queue-wrap { display:flex; align-items:center; gap:8px; }
-    .dot { width:9px; height:9px; border-radius:50%; background:#22c55e; }
-    .dot.busy { background:#f59e0b; animation:pulse 1s infinite; }
+    .agent-detail {
+      color: var(--text-secondary);
+      font-size: 10px;
+      margin-top: 3px;
+      letter-spacing: 0.01em;
+    }
 
-    /* ── Stock table ── */
-    .stock-table { width:100%; font-size:12px; border-collapse:collapse; }
-    .stock-table th { text-align:left; color:#9ca3af; padding:5px 8px;
-                      border-bottom:1px solid #2d3148; font-size:11px;
-                      text-transform:uppercase; }
-    .stock-table td { padding:5px 8px; }
-    .pos { color:#22c55e; } .neg { color:#ef4444; }
+    /* ── Badges ───────────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
 
-    /* ── Video cards ── */
-    .video-card { display:flex; gap:12px; padding:12px;
-                  border:1px solid #2d3148; border-radius:8px;
-                  margin-bottom:10px; background:#13151f; }
-    .video-card img { width:120px; height:68px; object-fit:cover;
-                      border-radius:5px; flex-shrink:0; }
-    .video-card .info a { font-size:13px; font-weight:600; color:#93c5fd;
-                          text-decoration:none; }
-    .video-card .info a:hover { text-decoration:underline; }
-    .video-card .channel { font-size:11px; color:#6b7280; margin:3px 0; }
-    .video-card .blurb   { font-size:12px; color:#9ca3af; line-height:1.5; }
-    .cat-badge { display:inline-block; font-size:10px; padding:2px 8px;
-                 border-radius:10px; margin-bottom:4px; }
-    .cat-news { background:#1e3a5f; color:#93c5fd; }
-    .cat-personality { background:#2d1f4f; color:#c4b5fd; }
+    .badge-success   { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(16,185,129,0.4); }
+    .badge-error     { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(239,68,68,0.4); }
+    .badge-running   { background: var(--cyan-dim);   color: var(--cyan);   border: 1px solid rgba(6,182,212,0.4); animation: glow-pulse 2s infinite; }
+    .badge-never     { background: transparent;       color: var(--text-dim); border: 1px solid var(--text-dim); }
+    .badge-restarted { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(245,158,11,0.4); }
 
-    /* ── Email rows ── */
-    .email-row { padding:10px 0; border-bottom:1px solid #2d3148; }
-    .email-row:last-child { border-bottom:none; }
-    .email-subject { font-size:13px; font-weight:600; color:#e2e8f0; }
-    .email-sender  { font-size:11px; color:#6b7280; margin:2px 0; }
-    .email-summary { font-size:12px; color:#9ca3af; }
-    .email-cat { display:inline-block; font-size:10px; font-weight:700;
-                 padding:2px 8px; border-radius:10px; margin-left:6px; }
-    .cat-URGENT    { background:#7f1d1d; color:#fca5a5; }
-    .cat-ACTION_REQUIRED { background:#1e3a5f; color:#93c5fd; }
-    .cat-FOLLOW_UP { background:#2d2006; color:#fcd34d; }
-    .cat-NEWSLETTER  { background:#1a2e1a; color:#86efac; }
-    .cat-NOTIFICATION{ background:#1f1d30; color:#a5b4fc; }
-    .cat-PERSONAL    { background:#2d1b1b; color:#fda4af; }
-    .cat-OTHER       { background:#1c1917; color:#a8a29e; }
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    button {
+      background: transparent;
+      border: 1px solid var(--border-bright);
+      color: var(--text-secondary);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--font);
+      cursor: pointer;
+      transition: all .2s;
+      margin-left: 6px;
+    }
 
-    /* ── Arabic word card ── */
-    .arabic-main { background:linear-gradient(135deg,#1e1b4b,#312e81);
-                   border-radius:12px; padding:28px; text-align:center;
-                   margin-bottom:20px; }
-    .arabic-word { font-size:56px; direction:rtl; font-weight:700;
-                   color:white; margin-bottom:8px; }
-    .arabic-trans { font-size:20px; color:#a5b4fc; margin-bottom:4px; }
-    .arabic-root  { font-size:13px; color:#818cf8; }
-    .meaning-grid { display:grid; grid-template-columns:1fr 1fr;
-                    gap:10px; margin-bottom:16px; }
-    .meaning-en { background:#eff6ff; border-radius:8px; padding:12px;
-                  color:#1e40af; }
-    .meaning-ur { background:#fdf4ff; border-radius:8px; padding:12px;
-                  color:#86198f; text-align:right; direction:rtl; }
-    .meaning-label { font-size:10px; font-weight:700; text-transform:uppercase;
-                     margin-bottom:4px; opacity:.7; }
-    .meaning-text  { font-size:15px; font-weight:700; }
+    button:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyan-dim); }
 
-    /* ── Root tree ── */
-    .root-tree { display:flex; flex-wrap:wrap; gap:8px;
-                 justify-content:center; padding:14px;
-                 background:#13151f; border-radius:8px;
-                 border:1px solid #2d3148; margin-bottom:16px; }
-    .root-center { background:#5b21b6; color:white; border-radius:8px;
-                   padding:10px 16px; text-align:center; font-weight:700; }
-    .root-node   { background:#1a1d27; border:1px solid #7c3aed;
-                   border-radius:8px; padding:10px; text-align:center;
-                   min-width:100px; }
-    .root-node .rn-word { font-size:18px; direction:rtl;
-                          color:#c4b5fd; font-weight:700; }
-    .root-node .rn-trans { font-size:10px; color:#7c3aed; margin:2px 0; }
-    .root-node .rn-mean  { font-size:11px; color:#9ca3af; }
+    button.run-btn {
+      background: var(--green-dim);
+      border-color: rgba(16,185,129,0.5);
+      color: var(--green);
+    }
 
-    /* ── SRS boxes ── */
-    .srs-row { display:flex; justify-content:space-between; align-items:center;
-               padding:10px 0; border-bottom:1px solid #2d3148; font-size:13px; }
-    .srs-row:last-child { border-bottom:none; }
-    .srs-box-1 { background:#7f1d1d; color:#fca5a5; padding:2px 8px;
-                 border-radius:10px; font-size:10px; font-weight:700; }
-    .srs-box-2 { background:#78350f; color:#fcd34d; padding:2px 8px;
-                 border-radius:10px; font-size:10px; font-weight:700; }
-    .srs-box-3 { background:#052e16; color:#22c55e; padding:2px 8px;
-                 border-radius:10px; font-size:10px; font-weight:700; }
+    button.run-btn:hover {
+      background: var(--green);
+      color: var(--bg-primary);
+      box-shadow: 0 0 15px var(--green-glow);
+    }
 
-    /* ── Verse block ── */
-    .verse-block { background:#1a1d27; border:1px solid #2d3148;
-                   border-radius:8px; padding:16px; margin-bottom:16px; }
-    .verse-ar { font-size:20px; direction:rtl; line-height:2;
-                color:#e2e8f0; text-align:right; margin-bottom:10px; }
-    .verse-en { font-size:13px; color:#9ca3af; font-style:italic;
-                margin-bottom:6px; line-height:1.6; }
-    .verse-ur { font-size:13px; color:#9ca3af; direction:rtl;
-                text-align:right; line-height:1.8; }
+    /* ── LLM Queue ────────────────────────────────────────────────────────── */
+    .queue-wrap { display: flex; align-items: center; gap: 8px; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .dot.busy { background: var(--amber); box-shadow: 0 0 8px var(--amber); animation: pulse 1s infinite; }
 
-    /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width:6px; height:6px; }
-    ::-webkit-scrollbar-track { background:#13151f; }
-    ::-webkit-scrollbar-thumb { background:#2d3148; border-radius:3px; }
+    /* ── Section headers ──────────────────────────────────────────────────── */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--cyan);
+      letter-spacing: 0.03em;
+      text-shadow: 0 0 20px rgba(6,182,212,0.4);
+    }
+
+    .section-title::before { content: '// '; color: var(--text-dim); font-weight: 400; }
+    .section-sub { font-size: 10px; color: var(--text-secondary); margin-top: 4px; letter-spacing: 0.02em; }
+
+    /* ── Stock rows ───────────────────────────────────────────────────────── */
+    .stock-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 5px 0;
+      border-bottom: 1px solid rgba(6,182,212,0.06);
+      font-size: 11px;
+    }
+
+    .stock-row:last-child { border-bottom: none; }
+    .pos { color: var(--green); }
+    .neg { color: var(--red);   }
+
+    /* ── Video cards ──────────────────────────────────────────────────────── */
+    .video-card {
+      display: flex;
+      gap: 10px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      background: rgba(15,23,42,0.5);
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    .video-card:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 15px var(--cyan-glow);
+    }
+
+    .video-card img {
+      width: 112px; height: 63px;
+      object-fit: cover;
+      border-radius: 4px;
+      flex-shrink: 0;
+      border: 1px solid var(--border);
+    }
+
+    .video-card .v-title { font-size: 12px; font-weight: 700; }
+    .video-card .v-title a { color: var(--cyan); text-decoration: none; }
+    .video-card .v-title a:hover { color: var(--text-primary); }
+    .video-card .v-channel { font-size: 10px; color: var(--text-dim); margin: 3px 0; }
+    .video-card .v-blurb   { font-size: 11px; color: var(--text-secondary); line-height: 1.5; }
+
+    /* ── Email rows ───────────────────────────────────────────────────────── */
+    .email-row { padding: 9px 0; border-bottom: 1px solid rgba(6,182,212,0.08); }
+    .email-row:last-child { border-bottom: none; }
+    .email-subject { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+    .email-sender  { font-size: 10px; color: var(--text-dim); margin: 2px 0; }
+    .email-summary { font-size: 11px; color: var(--text-secondary); }
+
+    .email-cat {
+      display: inline-block; font-size: 9px; font-weight: 700;
+      padding: 1px 7px; border-radius: 10px; margin-left: 6px;
+      letter-spacing: 0.06em; text-transform: uppercase;
+    }
+
+    .cat-URGENT          { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(239,68,68,0.3); }
+    .cat-ACTION_REQUIRED { background: var(--cyan-dim);   color: var(--cyan);   border: 1px solid rgba(6,182,212,0.3); }
+    .cat-FOLLOW_UP       { background: var(--amber-dim);  color: var(--amber);  border: 1px solid rgba(245,158,11,0.3); }
+    .cat-NEWSLETTER      { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(16,185,129,0.3); }
+    .cat-NOTIFICATION    { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(139,92,246,0.3); }
+    .cat-PERSONAL        { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(59,130,246,0.3); }
+    .cat-OTHER           { background: transparent;       color: var(--text-dim); border: 1px solid var(--text-dim); }
+
+    /* ── Arabic word card ─────────────────────────────────────────────────── */
+    .arabic-main {
+      background: linear-gradient(135deg,
+        rgba(11,15,25,0.95) 0%,
+        rgba(30,15,50,0.95) 50%,
+        rgba(11,15,25,0.95) 100%
+      );
+      border: 1px solid rgba(139,92,246,0.5);
+      border-radius: 10px;
+      padding: 28px;
+      text-align: center;
+      margin-bottom: 16px;
+      box-shadow: 0 0 40px rgba(139,92,246,0.15), inset 0 0 40px rgba(139,92,246,0.03);
+    }
+
+    .arabic-word {
+      font-size: 56px;
+      direction: rtl;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 8px;
+      text-shadow: 0 0 30px rgba(139,92,246,0.6), 0 0 60px rgba(139,92,246,0.2);
+    }
+
+    .arabic-trans { font-size: 18px; color: var(--purple); margin-bottom: 4px; text-shadow: 0 0 10px rgba(139,92,246,0.4); }
+    .arabic-root  { font-size: 11px; color: var(--text-dim); letter-spacing: 0.05em; }
+
+    .meaning-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .meaning-en {
+      background: var(--cyan-dim);
+      border: 1px solid rgba(6,182,212,0.3);
+      border-radius: 6px;
+      padding: 12px;
+      color: var(--cyan);
+    }
+
+    .meaning-ur {
+      background: var(--purple-dim);
+      border: 1px solid rgba(139,92,246,0.3);
+      border-radius: 6px;
+      padding: 12px;
+      color: var(--purple);
+      text-align: right;
+      direction: rtl;
+    }
+
+    .meaning-label {
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 5px;
+      opacity: 0.6;
+    }
+
+    .meaning-text { font-size: 15px; font-weight: 700; }
+
+    /* ── Root tree ────────────────────────────────────────────────────────── */
+    .root-tree {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(15,23,42,0.6);
+      border: 1px solid rgba(139,92,246,0.3);
+      border-radius: 8px;
+      margin-bottom: 14px;
+    }
+
+    .root-center {
+      background: linear-gradient(135deg, var(--purple), #6D28D9);
+      color: white;
+      border-radius: 8px;
+      padding: 10px 16px;
+      text-align: center;
+      font-weight: 700;
+      box-shadow: 0 0 20px var(--purple-glow);
+    }
+
+    .root-node {
+      background: var(--purple-dim);
+      border: 1px solid rgba(139,92,246,0.3);
+      border-radius: 6px;
+      padding: 8px 10px;
+      text-align: center;
+      min-width: 90px;
+      transition: border-color .2s;
+    }
+
+    .root-node:hover { border-color: var(--purple); box-shadow: 0 0 12px var(--purple-glow); }
+    .root-node .rn-word  { font-size: 16px; direction: rtl; color: var(--purple); font-weight: 700; }
+    .root-node .rn-trans { font-size: 9px;  color: var(--text-dim); margin: 2px 0; }
+    .root-node .rn-mean  { font-size: 10px; color: var(--text-secondary); }
+
+    /* ── SRS rows ─────────────────────────────────────────────────────────── */
+    .srs-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 9px 0;
+      border-bottom: 1px solid rgba(6,182,212,0.08);
+    }
+
+    .srs-row:last-child { border-bottom: none; }
+
+    .srs-box-1 { background: var(--red-dim);    color: var(--red);    padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; border: 1px solid rgba(239,68,68,0.3); letter-spacing:.05em; }
+    .srs-box-2 { background: var(--amber-dim);  color: var(--amber);  padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; border: 1px solid rgba(245,158,11,0.3); letter-spacing:.05em; }
+    .srs-box-3 { background: var(--green-dim);  color: var(--green);  padding: 2px 8px; border-radius: 10px; font-size: 9px; font-weight: 700; border: 1px solid rgba(16,185,129,0.3); letter-spacing:.05em; }
+
+    /* ── Verse block ──────────────────────────────────────────────────────── */
+    .verse-block {
+      background: rgba(15,23,42,0.6);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--purple);
+      border-radius: 6px;
+      padding: 14px;
+      margin-bottom: 14px;
+    }
+
+    .verse-ref  { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 12px; }
+    .verse-ar   { font-size: 22px; direction: rtl; line-height: 2.2; color: var(--text-primary); text-align: right; margin-bottom: 10px; }
+    .verse-en   { font-size: 12px; color: var(--text-secondary); font-style: italic; margin-bottom: 8px; line-height: 1.6; }
+    .verse-ur   { font-size: 12px; color: var(--text-secondary); direction: rtl; text-align: right; line-height: 1.8; }
+
+    /* ── Divider line ─────────────────────────────────────────────────────── */
+    .cyber-divider {
+      height: 1px;
+      background: linear-gradient(to right, transparent, var(--cyan), transparent);
+      margin: 16px 0;
+      opacity: 0.3;
+    }
+
+    /* ── Select ───────────────────────────────────────────────────────────── */
+    select {
+      background: var(--bg-card);
+      border: 1px solid var(--border-bright);
+      color: var(--text-primary);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-family: var(--font);
+      cursor: pointer;
+    }
+
+    select:focus { outline: none; border-color: var(--cyan); box-shadow: 0 0 10px var(--cyan-glow); }
+
+    /* ── Scrollbar ────────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg-primary); }
+    ::-webkit-scrollbar-thumb { background: rgba(6,182,212,0.3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--cyan); }
+
+    /* ── Empty state ──────────────────────────────────────────────────────── */
+    .empty { color: var(--text-dim); font-size: 11px; padding: 20px 0; text-align: center; }
+    .empty::before { content: '◌  '; }
   </style>
 </head>
 <body>
 
-<!-- ── Header ─────────────────────────────────────────────────────────────── -->
-<div class="header">
-  <div>
-    <h1>⚙️ Multi-Agent Auto-Scheduling Platform</h1>
-    <p>Python 3.14 · Qwen3-14B via LM Studio · APScheduler · Local AI</p>
+<!-- ── Hero Banner ────────────────────────────────────────────────────────── -->
+<div class="hero">
+  <div class="hero-bg">
+  <img src="/static/ai_agents.png" alt="">
+</div>
+  <div class="hero-content">
+    <div class="hero-title">
+      Multi-Agent <span>Auto-Scheduling Platform</span>
+    </div>
+    <div class="hero-sub">
+      Python 3.14 &nbsp;·&nbsp; <b>Qwen3-14B via LM Studio</b> &nbsp;·&nbsp;
+      APScheduler &nbsp;·&nbsp; SQLite &nbsp;·&nbsp; Local AI — No Cloud APIs
+    </div>
   </div>
-  <div class="live-dot"><span></span> Live</div>
+  <div class="hero-badges">
+    <div class="live-badge"><div class="live-dot"></div> LIVE</div>
+    <div class="hero-badge">5 AGENTS</div>
+    <div class="hero-badge">LOCAL LLM</div>
+  </div>
 </div>
 
 <!-- ── Alarm Banner ───────────────────────────────────────────────────────── -->
@@ -200,162 +671,133 @@
 
 <!-- ── Tabs ───────────────────────────────────────────────────────────────── -->
 <div class="tabs">
-  <div class="tab active"  onclick="switchTab('overview')">📊 Overview</div>
-  <div class="tab"         onclick="switchTab('aitimes')">🤖 AI-Times</div>
-  <div class="tab"         onclick="switchTab('mailman')">📬 Mailman</div>
-  <div class="tab"         onclick="switchTab('stocks')">📈 Wallstreet Wolf</div>
-  <div class="tab"         onclick="switchTab('arabic')">🌙 Arabic Word</div>
+  <div class="tab active" onclick="switchTab('overview')">Overview</div>
+  <div class="tab"        onclick="switchTab('aitimes')">AI-Times</div>
+  <div class="tab"        onclick="switchTab('mailman')">Mailman</div>
+  <div class="tab"        onclick="switchTab('stocks')">Wallstreet Wolf</div>
+  <div class="tab"        onclick="switchTab('arabic')">Arabic Word</div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- TAB 1 — OVERVIEW                                                        -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ════════════ TAB 1 — OVERVIEW ════════════════════════════════════════ -->
 <div id="tab-overview" class="panel active">
 
-  <!-- Resource meters -->
-  <div class="grid-3">
-    <div class="card">
-      <h3>CPU Usage</h3>
-      <div class="metric-val" id="cpu-val">—</div>
+  <div class="grid-5">
+    <div class="metric-card">
+      <div class="metric-label">// CPU Usage</div>
+      <div class="metric-val ok" id="cpu-val">—</div>
     </div>
-    <div class="card">
-      <h3>RAM Usage</h3>
-      <div class="metric-val" id="ram-val">—</div>
+    <div class="metric-card">
+      <div class="metric-label">// RAM Usage</div>
+      <div class="metric-val ok" id="ram-val">—</div>
     </div>
-    <div class="card">
-      <h3>Disk Usage</h3>
-      <div class="metric-val" id="disk-val">—</div>
+    <div class="metric-card">
+      <div class="metric-label">// Disk Usage</div>
+      <div class="metric-val ok" id="disk-val">—</div>
     </div>
-    <div class="card">
-      <h3>Threads</h3>
-      <div class="metric-val" id="threads-val">—</div>
+    <div class="metric-card">
+      <div class="metric-label">// Threads</div>
+      <div class="metric-val ok" id="threads-val">—</div>
     </div>
-    <div class="card">
-      <h3>LLM Queue</h3>
-      <div class="queue-wrap">
+    <div class="metric-card">
+      <div class="metric-label">// LLM Queue</div>
+      <div class="queue-wrap" style="margin-top:6px">
         <div class="dot" id="queue-dot"></div>
-        <span id="queue-val" style="font-size:14px">idle</span>
+        <span id="queue-val" style="font-size:14px;color:var(--text-primary)">idle</span>
       </div>
     </div>
   </div>
 
   <div class="grid-2">
-    <!-- Agent Status -->
     <div class="card">
       <h3>Agent Status</h3>
-      <div id="agent-list">Loading...</div>
+      <div id="agent-list"><div class="empty">loading agents...</div></div>
     </div>
-
-    <!-- Resource Chart -->
     <div class="card">
-      <h3>Resource History (last 60 readings)</h3>
-      <canvas id="resource-chart" height="180"></canvas>
+      <h3>Resource History — Last 60 Readings</h3>
+      <canvas id="resource-chart" height="190"></canvas>
     </div>
   </div>
 
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- TAB 2 — AI-TIMES                                                        -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ════════════ TAB 2 — AI-TIMES ════════════════════════════════════════ -->
 <div id="tab-aitimes" class="panel">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <div class="section-header">
     <div>
-      <h2 style="font-size:18px">🤖 AI-Times — Video Digest</h2>
-      <p style="color:#6b7280;font-size:13px;margin-top:4px">
-        5 AI news + 5 personality videos — updated daily at 07:00 UTC
-      </p>
+      <div class="section-title">AI-Times — Video Digest</div>
+      <div class="section-sub">5 AI news + 5 personality videos · daily 07:00 UTC · YouTube Data API v3</div>
     </div>
     <button class="run-btn" onclick="triggerAgent('ai_times')">▶ Run Now</button>
   </div>
-
   <div class="grid-2">
     <div class="card">
       <h3>📰 AI News Videos</h3>
-      <div id="news-videos">Loading...</div>
+      <div id="news-videos"><div class="empty">no videos yet</div></div>
     </div>
     <div class="card">
-      <h3>🎙️ Personality & Interviews</h3>
-      <div id="personality-videos">Loading...</div>
+      <h3>🎙 Personality &amp; Interviews</h3>
+      <div id="personality-videos"><div class="empty">no videos yet</div></div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- TAB 3 — MAILMAN                                                         -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ════════════ TAB 3 — MAILMAN ═════════════════════════════════════════ -->
 <div id="tab-mailman" class="panel">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <div class="section-header">
     <div>
-      <h2 style="font-size:18px">📬 Mailman — Email Classifier</h2>
-      <p style="color:#6b7280;font-size:13px;margin-top:4px">
-        Scans inbox every 15 min · Classifies with Qwen3 · Auto-labels in Gmail
-      </p>
+      <div class="section-title">Mailman — Email Classifier</div>
+      <div class="section-sub">Gmail OAuth2 · 7 categories · Qwen3 classifier · auto-labels · every 15 min</div>
     </div>
     <button class="run-btn" onclick="triggerAgent('mailman')">▶ Scan Now</button>
   </div>
-
   <div class="grid-2">
-    <!-- Category breakdown -->
     <div class="card">
       <h3>Category Breakdown</h3>
-      <canvas id="email-chart" height="200"></canvas>
+      <canvas id="email-chart" height="230"></canvas>
     </div>
-
-    <!-- Email list -->
     <div class="card">
       <h3>Recent Classified Emails</h3>
-      <div id="email-list">Loading...</div>
+      <div id="email-list"><div class="empty">no emails classified yet</div></div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- TAB 4 — WALLSTREET WOLF                                                 -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ════════════ TAB 4 — WALLSTREET WOLF ════════════════════════════════ -->
 <div id="tab-stocks" class="panel">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <div class="section-header">
     <div>
-      <h2 style="font-size:18px">📈 Wallstreet Wolf — Market Brief</h2>
-      <p style="color:#6b7280;font-size:13px;margin-top:4px">
-        20+ stocks · Mon–Fri 06:30 UTC · Live Yahoo Finance data
-      </p>
+      <div class="section-title">Wallstreet Wolf — Market Brief</div>
+      <div class="section-sub">22 stocks · currency pairs · Gold &amp; Silver · Mon–Fri 06:30 UTC · Yahoo Finance</div>
     </div>
     <button class="run-btn" onclick="triggerAgent('wallstreet_wolf')">▶ Run Now</button>
   </div>
-
-  <div class="grid-3" style="grid-template-columns:1fr 1fr 2fr">
+  <div class="grid-3">
     <div class="card">
       <h3>▲ Top 5 Gainers</h3>
-      <div id="gainers-list">Loading...</div>
+      <div id="gainers-list"><div class="empty">no data yet</div></div>
     </div>
     <div class="card">
       <h3>▼ Top 5 Losers</h3>
-      <div id="losers-list">Loading...</div>
+      <div id="losers-list"><div class="empty">no data yet</div></div>
     </div>
     <div class="card">
       <h3>Full Watchlist</h3>
-      <div id="watchlist" style="max-height:320px;overflow-y:auto">Loading...</div>
+      <div id="watchlist" style="max-height:340px;overflow-y:auto">
+        <div class="empty">no data yet</div>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- ════════════════════════════════════════════════════════════════════════ -->
-<!-- TAB 5 — ARABIC WORD                                                     -->
-<!-- ════════════════════════════════════════════════════════════════════════ -->
+<!-- ════════════ TAB 5 — ARABIC WORD ════════════════════════════════════ -->
 <div id="tab-arabic" class="panel">
-  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px">
+  <div class="section-header">
     <div>
-      <h2 style="font-size:18px">🌙 Quranic Arabic — Word of the Day</h2>
-      <p style="color:#6b7280;font-size:13px;margin-top:4px">
-        Daily at 08:00 UTC · AlQuran Cloud API · Spaced Repetition System
-      </p>
+      <div class="section-title">Quranic Arabic — Word of the Day</div>
+      <div class="section-sub">AlQuran Cloud API · Qwen3 root analysis · SRS (Leitner) · daily 08:00 UTC</div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
-      <select id="difficulty-select"
-              style="background:#1a1d27;border:1px solid #2d3148;color:#e2e8f0;
-                     padding:6px 10px;border-radius:6px;font-size:12px"
-              onchange="changeDifficulty(this.value)">
+      <select id="difficulty-select" onchange="changeDifficulty(this.value)">
         <option value="beginner">Beginner</option>
         <option value="intermediate">Intermediate</option>
         <option value="advanced">Advanced</option>
@@ -363,24 +805,18 @@
       <button class="run-btn" onclick="triggerAgent('arabic_word')">▶ Run Now</button>
     </div>
   </div>
-
   <div class="grid-2">
-    <!-- Today's word -->
     <div>
       <div id="arabic-word-card">
-        <div style="text-align:center;color:#6b7280;padding:40px">
-          No word yet — click Run Now
-        </div>
+        <div class="empty" style="padding:60px 0">no word loaded yet — click Run Now</div>
       </div>
     </div>
-
-    <!-- SRS History -->
     <div class="card">
       <h3>📚 SRS Progress — Word History</h3>
-      <p style="color:#6b7280;font-size:11px;margin-bottom:12px">
-        Click to update your progress for each word
+      <p style="color:var(--text-dim);font-size:10px;margin-bottom:12px;letter-spacing:.02em">
+        Mark each word to update your spaced repetition progress
       </p>
-      <div id="srs-history">Loading...</div>
+      <div id="srs-history"><div class="empty">no words yet</div></div>
     </div>
   </div>
 </div>
@@ -391,23 +827,19 @@
 <script>
   let resourceChart = null;
   let emailChart    = null;
-  let currentTab    = 'overview';
 
-  // ── Tab switching ──────────────────────────────────────────────────────────
   function switchTab(name) {
-    document.querySelectorAll('.tab').forEach((t,i) => {
-      t.classList.toggle('active', ['overview','aitimes','mailman','stocks','arabic'][i] === name);
-    });
+    const names = ['overview','aitimes','mailman','stocks','arabic'];
+    document.querySelectorAll('.tab').forEach((t,i) =>
+      t.classList.toggle('active', names[i] === name));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.getElementById('tab-' + name).classList.add('active');
-    currentTab = name;
-    if (name === 'aitimes')  fetchVideos();
-    if (name === 'mailman')  fetchEmails();
-    if (name === 'stocks')   fetchStocks();
-    if (name === 'arabic')   fetchArabic();
+    if (name === 'aitimes') fetchVideos();
+    if (name === 'mailman') fetchEmails();
+    if (name === 'stocks')  fetchStocks();
+    if (name === 'arabic')  fetchArabic();
   }
 
-  // ── Helpers ────────────────────────────────────────────────────────────────
   function badge(status) {
     const map = { success:'badge-success', error:'badge-error',
                   running:'badge-running', never_run:'badge-never',
@@ -420,61 +852,58 @@
     return new Date(iso + 'Z').toLocaleTimeString();
   }
 
-  function metricColor(val) {
+  function metricClass(val) {
     if (val >= 90) return 'crit';
     if (val >= 75) return 'warn';
-    return '';
+    return 'ok';
   }
 
   function triggerAgent(name) {
     fetch(`/api/agents/${name}/run`, {method:'POST'})
-      .then(r => r.json())
-      .then(() => { setTimeout(fetchStatus, 1500); })
-      .catch(e => console.error(e));
+      .then(() => setTimeout(fetchStatus, 1500));
   }
 
-  // ── Overview: Status + Resources ──────────────────────────────────────────
+  // ── Overview ───────────────────────────────────────────────────────────────
   async function fetchStatus() {
     try {
-      const d = await (await fetch('/api/status')).json();
-
-      // Metrics
-      const cpu  = d.resources?.cpu   || 0;
-      const ram  = d.resources?.ram   || 0;
-      const disk = d.resources?.disk  || 0;
+      const d   = await (await fetch('/api/status')).json();
+      const cpu  = d.resources?.cpu     || 0;
+      const ram  = d.resources?.ram     || 0;
+      const disk = d.resources?.disk    || 0;
       const thr  = d.resources?.threads || 0;
 
-      document.getElementById('cpu-val').className  = 'metric-val ' + metricColor(cpu);
-      document.getElementById('ram-val').className  = 'metric-val ' + metricColor(ram);
-      document.getElementById('disk-val').className = 'metric-val ' + metricColor(disk);
-      document.getElementById('cpu-val').textContent  = cpu.toFixed(1)  + '%';
-      document.getElementById('ram-val').textContent  = ram.toFixed(1)  + '%';
-      document.getElementById('disk-val').textContent = disk.toFixed(1) + '%';
+      const setMetric = (id, val, suffix='%') => {
+        const el = document.getElementById(id);
+        el.className = 'metric-val ' + metricClass(val);
+        el.textContent = val.toFixed(1) + suffix;
+      };
+
+      setMetric('cpu-val',  cpu);
+      setMetric('ram-val',  ram);
+      setMetric('disk-val', disk);
+      document.getElementById('threads-val').className = 'metric-val ok';
       document.getElementById('threads-val').textContent = thr;
 
-      // LLM queue
       const active = d.llm_queue?.active || 0;
       document.getElementById('queue-val').textContent = active > 0 ? `${active} active` : 'idle';
       document.getElementById('queue-dot').className = 'dot' + (active > 0 ? ' busy' : '');
 
-      // Agent list
-      document.getElementById('agent-list').innerHTML = (d.agents || []).map(a => `
+      document.getElementById('agent-list').innerHTML = (d.agents||[]).map(a => `
         <div class="agent-row">
           <div>
-            <div class="agent-name">${a.name.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase())}</div>
+            <div class="agent-name">${a.name}</div>
             <div class="agent-detail">
-              Last run: ${fmt(a.last_run)} &nbsp;·&nbsp;
-              ${(a.last_message||'').slice(0,60)}
-              ${a.crash_count > 0 ? `<span style="color:#ef4444">· ${a.crash_count} crash(es)</span>` : ''}
+              last_run: ${fmt(a.last_run)} &nbsp;|&nbsp; ${(a.last_message||'').slice(0,55)}
+              ${a.crash_count > 0 ? `<span style="color:var(--red)"> | crashes: ${a.crash_count}</span>` : ''}
             </div>
           </div>
-          <div>
+          <div style="display:flex;align-items:center;gap:4px">
             ${badge(a.last_status)}
             <button class="run-btn" onclick="triggerAgent('${a.name}')">▶</button>
           </div>
         </div>`).join('');
 
-    } catch(e) { console.error('Status fetch failed:', e); }
+    } catch(e) { console.error(e); }
   }
 
   async function fetchResourceHistory() {
@@ -484,21 +913,22 @@
       const cpu    = rows.map(r => r.cpu_pct  || 0);
       const ram    = rows.map(r => r.ram_pct  || 0);
 
+      const opts = { tension:.3, pointRadius:0, borderWidth:1.5, fill:false };
+
       if (!resourceChart) {
         resourceChart = new Chart(document.getElementById('resource-chart'), {
           type: 'line',
           data: { labels, datasets: [
-            { label:'CPU %',  data:cpu, borderColor:'#60a5fa',
-              tension:.3, pointRadius:0, borderWidth:1.5, fill:false },
-            { label:'RAM %',  data:ram, borderColor:'#a78bfa',
-              tension:.3, pointRadius:0, borderWidth:1.5, fill:false },
+            { label:'CPU %', data:cpu, borderColor:'#06B6D4', ...opts },
+            { label:'RAM %', data:ram, borderColor:'#8B5CF6', ...opts },
           ]},
           options: {
-            plugins:{ legend:{ labels:{ color:'#9ca3af', font:{size:11} }}},
+            plugins:{ legend:{ labels:{ color:'#94A3B8', font:{size:10}, padding:12 }}},
             scales:{
-              x:{ ticks:{color:'#6b7280',font:{size:10}}, grid:{color:'#1f2937'} },
-              y:{ min:0, max:100, ticks:{color:'#6b7280',font:{size:10}},
-                  grid:{color:'#1f2937'} }
+              x:{ ticks:{color:'#475569',font:{size:9}}, grid:{color:'rgba(6,182,212,0.05)'} },
+              y:{ min:0, max:100,
+                  ticks:{color:'#475569',font:{size:9}},
+                  grid:{color:'rgba(6,182,212,0.05)'} }
             },
             animation: false
           }
@@ -509,21 +939,20 @@
         resourceChart.data.datasets[1].data = ram;
         resourceChart.update('none');
       }
-    } catch(e) { console.error('Resource history failed:', e); }
+    } catch(e) { console.error(e); }
   }
 
-  // ── Alarm polling ──────────────────────────────────────────────────────────
   async function fetchAlarms() {
     try {
       const d = await (await fetch('/api/alarm')).json();
-      const banner = document.getElementById('alarm-banner');
+      const b = document.getElementById('alarm-banner');
       if (d.alarms && d.alarms.length > 0) {
-        banner.style.display = 'block';
-        banner.innerHTML = d.alarms.map(a =>
-          `🚨 <b>${a.resource} at ${a.value}%</b> — ${a.action}`
-        ).join('<br>');
+        b.style.display = 'block';
+        b.innerHTML = d.alarms.map(a =>
+          `<span style="color:var(--amber)">[${a.resource} @ ${a.value}%]</span> ${a.action}`
+        ).join(' &nbsp;&nbsp; ');
       } else {
-        banner.style.display = 'none';
+        b.style.display = 'none';
       }
     } catch(e) {}
   }
@@ -532,23 +961,23 @@
   async function fetchVideos() {
     try {
       const rows = await (await fetch('/api/videos')).json();
-      const news  = rows.filter(v => v.category === 'news');
-      const pers  = rows.filter(v => v.category === 'personality');
+      const news = rows.filter(v => v.category === 'news');
+      const pers = rows.filter(v => v.category === 'personality');
 
-      const cardHtml = v => `
+      const card = v => `
         <div class="video-card">
           <img src="${v.thumbnail||''}" onerror="this.style.display='none'">
-          <div class="info">
-            <div><a href="${v.url}" target="_blank">${v.title}</a></div>
-            <div class="channel">${v.channel}</div>
-            <div class="blurb">${v.blurb||''}</div>
+          <div>
+            <div class="v-title"><a href="${v.url}" target="_blank">${v.title}</a></div>
+            <div class="v-channel">${v.channel}</div>
+            <div class="v-blurb">${v.blurb||''}</div>
           </div>
         </div>`;
 
       document.getElementById('news-videos').innerHTML =
-        news.length ? news.map(cardHtml).join('') : '<p style="color:#6b7280">No videos yet — click Run Now</p>';
+        news.length ? news.map(card).join('') : '<div class="empty">no news videos yet</div>';
       document.getElementById('personality-videos').innerHTML =
-        pers.length ? pers.map(cardHtml).join('') : '<p style="color:#6b7280">No videos yet — click Run Now</p>';
+        pers.length ? pers.map(card).join('') : '<div class="empty">no personality videos yet</div>';
     } catch(e) { console.error(e); }
   }
 
@@ -556,34 +985,30 @@
   async function fetchEmails() {
     try {
       const rows = await (await fetch('/api/emails')).json();
-
-      // Category counts for pie chart
       const counts = {};
-      rows.forEach(r => { counts[r.classification] = (counts[r.classification]||0) + 1; });
+      rows.forEach(r => { counts[r.classification] = (counts[r.classification]||0)+1; });
 
-      if (!emailChart && Object.keys(counts).length > 0) {
-        const COLORS = {
-          URGENT:'#ef4444', ACTION_REQUIRED:'#3b82f6', FOLLOW_UP:'#f59e0b',
-          NEWSLETTER:'#22c55e', NOTIFICATION:'#8b5cf6', PERSONAL:'#f43f5e', OTHER:'#6b7280'
-        };
-        emailChart = new Chart(document.getElementById('email-chart'), {
-          type: 'doughnut',
-          data: {
-            labels: Object.keys(counts),
-            datasets:[{ data: Object.values(counts),
-              backgroundColor: Object.keys(counts).map(k => COLORS[k]||'#6b7280'),
-              borderWidth:0 }]
-          },
-          options: {
-            plugins:{ legend:{ position:'right',
-              labels:{ color:'#9ca3af', font:{size:11}, padding:12 }}},
-            animation:false
-          }
-        });
-      } else if (emailChart) {
-        emailChart.data.labels = Object.keys(counts);
-        emailChart.data.datasets[0].data = Object.values(counts);
-        emailChart.update('none');
+      const COLORS = {
+        URGENT:'#EF4444', ACTION_REQUIRED:'#06B6D4', FOLLOW_UP:'#F59E0B',
+        NEWSLETTER:'#10B981', NOTIFICATION:'#8B5CF6', PERSONAL:'#3B82F6', OTHER:'#475569'
+      };
+
+      if (Object.keys(counts).length > 0) {
+        const data = { labels:Object.keys(counts),
+          datasets:[{ data:Object.values(counts),
+            backgroundColor:Object.keys(counts).map(k=>COLORS[k]||'#475569'),
+            borderColor:'#0B0F19', borderWidth:2 }]};
+        if (!emailChart) {
+          emailChart = new Chart(document.getElementById('email-chart'), {
+            type:'doughnut', data,
+            options:{ plugins:{ legend:{ position:'right',
+              labels:{ color:'#94A3B8', font:{size:11}, padding:12 }}},
+              animation:false }
+          });
+        } else {
+          emailChart.data = data;
+          emailChart.update('none');
+        }
       }
 
       document.getElementById('email-list').innerHTML = rows.length
@@ -596,8 +1021,7 @@
             <div class="email-sender">${r.sender||''}</div>
             <div class="email-summary">${r.ai_summary||''}</div>
           </div>`).join('')
-        : '<p style="color:#6b7280">No emails classified yet</p>';
-
+        : '<div class="empty">no emails classified yet</div>';
     } catch(e) { console.error(e); }
   }
 
@@ -606,10 +1030,8 @@
     try {
       const rows = await (await fetch('/api/stocks')).json();
       if (!rows.length) {
-        ['gainers-list','losers-list','watchlist'].forEach(id => {
-          document.getElementById(id).innerHTML =
-            '<p style="color:#6b7280;font-size:13px">No data yet — click Run Now</p>';
-        });
+        ['gainers-list','losers-list','watchlist'].forEach(id =>
+          document.getElementById(id).innerHTML = '<div class="empty">no data yet — click Run Now</div>');
         return;
       }
 
@@ -617,19 +1039,18 @@
       const gainers = sorted.slice(0,5);
       const losers  = sorted.slice(-5).reverse();
 
-      const stockRow = r => `
-        <div style="display:flex;justify-content:space-between;
-                    padding:6px 0;border-bottom:1px solid #2d3148;font-size:13px">
-          <b>${r.ticker}</b>
-          <span>$${(r.price||0).toFixed(2)}</span>
-          <span class="${r.change_pct>=0?'pos':'neg'}">
+      const row = r => `
+        <div class="stock-row">
+          <span style="color:var(--text-primary);font-weight:700;min-width:50px">${r.ticker}</span>
+          <span style="color:var(--text-secondary)">$${(r.price||0).toFixed(2)}</span>
+          <span class="${r.change_pct>=0?'pos':'neg'}" style="min-width:60px;text-align:right">
             ${r.change_pct>=0?'▲':'▼'} ${Math.abs(r.change_pct||0).toFixed(2)}%
           </span>
         </div>`;
 
-      document.getElementById('gainers-list').innerHTML  = gainers.map(stockRow).join('');
-      document.getElementById('losers-list').innerHTML   = losers.map(stockRow).join('');
-      document.getElementById('watchlist').innerHTML     = rows.map(stockRow).join('');
+      document.getElementById('gainers-list').innerHTML  = gainers.map(row).join('');
+      document.getElementById('losers-list').innerHTML   = losers.map(row).join('');
+      document.getElementById('watchlist').innerHTML     = rows.map(row).join('');
     } catch(e) { console.error(e); }
   }
 
@@ -639,12 +1060,11 @@
       const today   = await (await fetch('/api/arabic/today')).json();
       const history = await (await fetch('/api/arabic/history')).json();
 
-      // Today's word card
       if (today && today.word) {
         let rootFamily = [];
         try { rootFamily = JSON.parse(today.root_family||'[]'); } catch(e) {}
 
-        const familyNodes = rootFamily.map(f => `
+        const nodes = rootFamily.map(f => `
           <div class="root-node">
             <div class="rn-word">${f.word||''}</div>
             <div class="rn-trans">${f.transliteration||''}</div>
@@ -655,7 +1075,7 @@
           <div class="arabic-main">
             <div class="arabic-word">${today.word}</div>
             <div class="arabic-trans">${today.transliteration||''}</div>
-            <div class="arabic-root">Root: ${today.root||''} (${today.root_transliteration||''})</div>
+            <div class="arabic-root">Root: ${today.root||''} · ${today.root_transliteration||''} · ${today.difficulty||''}</div>
           </div>
 
           <div class="meaning-grid">
@@ -664,28 +1084,25 @@
               <div class="meaning-text">${today.meaning_en||''}</div>
             </div>
             <div class="meaning-ur">
-              <div class="meaning-label">Urdu</div>
+              <div class="meaning-label">اردو</div>
               <div class="meaning-text">${today.meaning_ur||''}</div>
             </div>
           </div>
 
           ${today.verb_form ? `
-          <div style="background:#1a1d27;border-left:3px solid #f97316;
-                      padding:12px;border-radius:6px;margin-bottom:14px">
-            <div style="font-size:11px;color:#f97316;font-weight:700;
-                        text-transform:uppercase;margin-bottom:6px">
+          <div style="background:rgba(245,158,11,0.05);border-left:3px solid var(--amber);
+                      padding:12px;border-radius:6px;margin-bottom:12px">
+            <div style="font-size:9px;color:var(--amber);font-weight:700;
+                        text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">
               Morphological Analysis
             </div>
-            <div style="font-size:13px;color:#d1d5db;line-height:1.6">
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.7">
               ${today.verb_form}
             </div>
           </div>` : ''}
 
           <div class="verse-block">
-            <div style="font-size:11px;color:#64748b;text-transform:uppercase;
-                        font-weight:700;margin-bottom:10px">
-              Quran ${today.verse_ref||''}
-            </div>
+            <div class="verse-ref">Quran ${today.verse_ref||''}</div>
             <div class="verse-ar">${today.verse_ar||''}</div>
             <div class="verse-en">${today.verse_en||''}</div>
             <div class="verse-ur">${today.verse_ur||''}</div>
@@ -693,108 +1110,96 @@
 
           ${today.audio_url ? `
           <a href="${today.audio_url}" target="_blank"
-             style="display:inline-block;background:#16a34a;color:white;
-                    padding:8px 16px;border-radius:6px;text-decoration:none;
-                    font-size:12px;margin-bottom:14px">
-            🎧 Listen to Verse (Alafasy)
+             style="display:inline-block;background:var(--green-dim);color:var(--green);
+                    border:1px solid rgba(16,185,129,0.4);padding:7px 16px;
+                    border-radius:6px;text-decoration:none;font-size:11px;
+                    margin-bottom:14px;transition:all .2s;letter-spacing:.03em">
+            ▶&nbsp; Listen — Mishary Alafasy Recitation
           </a>` : ''}
 
           ${rootFamily.length ? `
           <div style="margin-bottom:14px">
-            <div style="font-size:11px;color:#7c3aed;font-weight:700;
-                        text-transform:uppercase;margin-bottom:8px">
-              🌳 Root Family — ${today.root||''}
+            <div style="font-size:9px;color:var(--purple);font-weight:700;
+                        text-transform:uppercase;letter-spacing:.12em;margin-bottom:8px">
+              Root Family — ${today.root||''}
             </div>
             <div class="root-tree">
               <div class="root-center">
-                <div style="font-size:18px;direction:rtl">${today.root||''}</div>
-                <div style="font-size:10px;opacity:.7">${today.root_transliteration||''}</div>
+                <div style="font-size:16px;direction:rtl">${today.root||''}</div>
+                <div style="font-size:9px;opacity:.8;margin-top:2px">${today.root_transliteration||''}</div>
               </div>
-              ${familyNodes}
+              ${nodes}
             </div>
           </div>` : ''}
 
           ${today.contextual_explanation ? `
-          <div style="background:#052e16;border-left:3px solid #22c55e;
+          <div style="background:rgba(16,185,129,0.05);border-left:3px solid var(--green);
                       padding:12px;border-radius:6px">
-            <div style="font-size:11px;color:#22c55e;font-weight:700;
-                        text-transform:uppercase;margin-bottom:6px">
+            <div style="font-size:9px;color:var(--green);font-weight:700;
+                        text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px">
               Quranic Context
             </div>
-            <div style="font-size:13px;color:#d1d5db;line-height:1.6">
+            <div style="font-size:12px;color:var(--text-secondary);line-height:1.7">
               ${today.contextual_explanation}
             </div>
           </div>` : ''}
         `;
       }
 
-      // SRS history
-      const boxLabel = b => b===3 ? `<span class="srs-box-3">✅ Known</span>`
-                          : b===2 ? `<span class="srs-box-2">📖 Learning</span>`
-                                  : `<span class="srs-box-1">🔄 Review</span>`;
+      const boxLabel = b =>
+        b===3 ? `<span class="srs-box-3">KNOWN</span>` :
+        b===2 ? `<span class="srs-box-2">LEARNING</span>` :
+                `<span class="srs-box-1">REVIEW</span>`;
 
       document.getElementById('srs-history').innerHTML = history.length
         ? history.map(w => `
           <div class="srs-row">
             <div>
-              <span style="font-size:18px;direction:rtl;
-                           color:#c4b5fd">${w.word}</span>
-              <span style="color:#6b7280;font-size:12px;margin-left:6px">
-                ${w.transliteration}
-              </span>
-              <div style="font-size:11px;color:#9ca3af;margin-top:2px">
-                ${w.meaning_en}
-              </div>
+              <span style="font-size:18px;direction:rtl;color:var(--purple)">${w.word}</span>
+              <span style="color:var(--text-dim);font-size:11px;margin-left:8px">${w.transliteration}</span>
+              <div style="font-size:10px;color:var(--text-secondary);margin-top:2px">${w.meaning_en}</div>
             </div>
-            <div style="display:flex;flex-direction:column;
-                        align-items:flex-end;gap:4px">
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:5px">
               ${boxLabel(w.srs_box)}
               <div style="display:flex;gap:4px">
                 <button onclick="updateSRS(${w.id},true)"
-                        style="font-size:10px;padding:3px 8px;
-                               background:#052e16;border-color:#22c55e;
-                               color:#22c55e">
+                        style="font-size:9px;padding:2px 8px;background:var(--green-dim);
+                               border-color:rgba(16,185,129,.4);color:var(--green)">
                   ✓ Knew it
                 </button>
                 <button onclick="updateSRS(${w.id},false)"
-                        style="font-size:10px;padding:3px 8px;
-                               background:#2d0a0a;border-color:#ef4444;
-                               color:#ef4444">
+                        style="font-size:9px;padding:2px 8px;background:var(--red-dim);
+                               border-color:rgba(239,68,68,.4);color:var(--red)">
                   ✗ Still learning
                 </button>
               </div>
             </div>
           </div>`).join('')
-        : '<p style="color:#6b7280">No words yet — click Run Now</p>';
+        : '<div class="empty">no words yet — click Run Now</div>';
 
     } catch(e) { console.error(e); }
   }
 
   async function updateSRS(wordId, knewIt) {
-    try {
-      await fetch(`/api/arabic/srs/${wordId}?knew_it=${knewIt}`, {method:'POST'});
-      fetchArabic();
-    } catch(e) { console.error(e); }
+    await fetch(`/api/arabic/srs/${wordId}?knew_it=${knewIt}`, {method:'POST'});
+    fetchArabic();
   }
 
   function changeDifficulty(val) {
-    // Store preference — user can change and trigger a new word
     localStorage.setItem('arabic_difficulty', val);
-    alert(`Difficulty set to "${val}". Click Run Now to get a new word at this level.`);
+    alert(`Difficulty set to "${val}"\nClick Run Now to get a new word at this level.`);
   }
 
-  // ── Polling intervals ──────────────────────────────────────────────────────
+  // ── Polling ────────────────────────────────────────────────────────────────
   fetchStatus();
   fetchResourceHistory();
   fetchAlarms();
+  setInterval(fetchStatus,           5000);
+  setInterval(fetchResourceHistory,  30000);
+  setInterval(fetchAlarms,           10000);
 
-  setInterval(fetchStatus,          5000);   // every 5s
-  setInterval(fetchResourceHistory, 30000);  // every 30s
-  setInterval(fetchAlarms,          10000);  // every 10s
-
-  // Load difficulty from localStorage
-  const savedDiff = localStorage.getItem('arabic_difficulty');
-  if (savedDiff) document.getElementById('difficulty-select').value = savedDiff;
+  const saved = localStorage.getItem('arabic_difficulty');
+  if (saved) document.getElementById('difficulty-select').value = saved;
 </script>
 </body>
 </html>
