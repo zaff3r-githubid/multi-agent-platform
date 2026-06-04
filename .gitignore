@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+.env
+token.json
+credentials.json
+platform.db
+platform.db-shm
+platform.db-wal
+*.egg-info/
+.DS_Store
+test_*.py
+!tests/test_*.py
