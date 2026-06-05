@@ -91,4 +91,15 @@ CREATE TABLE IF NOT EXISTS srs_feedback (
     reviewed_at DATETIME NOT NULL,
     FOREIGN KEY (word_id) REFERENCES arabic_words(id)
 );
+
+CREATE TABLE IF NOT EXISTS llm_usage (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    agent_name        TEXT NOT NULL,
+    prompt_tokens     INTEGER DEFAULT 0,
+    completion_tokens INTEGER DEFAULT 0,
+    total_tokens      INTEGER DEFAULT 0,
+    response_time_ms  INTEGER DEFAULT 0,
+    tokens_per_sec    REAL DEFAULT 0,
+    called_at         DATETIME NOT NULL
+);
 """

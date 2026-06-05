@@ -140,6 +140,87 @@ async def manual_trigger(agent_name: str):
     return {"message": f"{agent_name} triggered", "status": "running"}
 
 
+@app.get("/api/observability")
+async def get_observability():
+    """
+    Returns AI token usage stats and cloud cost comparison.
+    Powers the AI Observability section on the dashboard.
+    """
+    from database.db import get_conn
+    from datetime import datetime, timezone
+
+    live = llm_queue.observability()
+
+    # ── Per-agent token breakdown (today) ────────────────────────────────────
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    with get_conn() as conn:
+
+        # Per-agent totals for today
+        agent_rows = conn.execute(
+            "SELECT agent_name,"
+            " SUM(total_tokens) as tokens,"
+            " AVG(tokens_per_sec) as avg_speed,"
+            " AVG(response_time_ms) as avg_ms,"
+            " COUNT(*) as calls"
+            " FROM llm_usage"
+            " WHERE DATE(called_at) = ?"
+            " GROUP BY agent_name",
+            (today,)
+        ).fetchall()
+
+        # Lifetime totals
+        lifetime_row = conn.execute(
+            "SELECT SUM(total_tokens) as total,"
+            " AVG(tokens_per_sec) as avg_speed,"
+            " COUNT(*) as total_calls"
+            " FROM llm_usage"
+        ).fetchone()
+
+        # Last 20 calls for the response time sparkline
+        history_rows = conn.execute(
+            "SELECT agent_name, total_tokens, tokens_per_sec,"
+            " response_time_ms, called_at"
+            " FROM llm_usage ORDER BY id DESC LIMIT 20"
+        ).fetchall()
+
+    lifetime_tokens = lifetime_row["total"] or 0
+    avg_speed       = round(lifetime_row["avg_speed"] or 0, 1)
+    total_calls     = lifetime_row["total_calls"] or 0
+
+    # ── Cloud cost comparison (per 1M tokens, combined input+output est.) ────
+    # Prices as of 2025 — input/output averaged for simplicity
+    CLOUD_PRICES = {
+        "GPT-4o":          10.00,
+        "GPT-4o Mini":      0.60,
+        "Claude Sonnet":    9.00,
+        "Claude Haiku":     1.25,
+        "Gemini 1.5 Pro":   7.00,
+        "Gemini Flash":     0.30,
+    }
+
+    tokens_m = lifetime_tokens / 1_000_000  # convert to millions
+
+    cost_comparison = [
+        {
+            "provider": name,
+            "cost_per_million": price,
+            "estimated_cost":   round(tokens_m * price, 4),
+            "you_saved":        round(tokens_m * price, 4),
+        }
+        for name, price in CLOUD_PRICES.items()
+    ]
+
+    return {
+        "live":             live,
+        "lifetime_tokens":  lifetime_tokens,
+        "avg_speed_tokps":  avg_speed,
+        "total_calls":      total_calls,
+        "agents_today":     [dict(r) for r in agent_rows],
+        "cost_comparison":  cost_comparison,
+        "history":          [dict(r) for r in reversed(history_rows)],
+    }
+
+
 @app.get("/api/stocks")
 async def get_stocks():
     """Returns latest stock data for the dashboard."""
