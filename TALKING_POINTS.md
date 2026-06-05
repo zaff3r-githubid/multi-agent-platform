@@ -14,24 +14,36 @@
 ### Step 1 — Environment Setup
 Open two terminal windows side by side with your browser.
 
-**Terminal 1 — Start the platform:**
+**Make sure LM Studio is open and the server is running first!**
+- Open LM Studio → Developer tab → confirm server is running on port 1234
+
+**Terminal 1 — Start the platform (use start.sh):**
 ```bash
 cd ~/multi-agent-platform
-source venv/bin/activate
-ulimit -n 4096
-python main.py
+./start.sh
 ```
+
+> `start.sh` automatically handles:
+> - ✅ Activating the virtual environment (venv)
+> - ✅ Setting `ulimit -n 4096` (prevents "too many open files" error)
+> - ✅ Running `caffeinate` to prevent Mac from sleeping mid-demo
+> - ✅ Starting `main.py`
 
 Wait until you see:
 ```
-Dashboard → http://localhost:8000
+=================================================
+  Multi-Agent Platform — Starting
+=================================================
+  Python: /Users/.../venv/bin/python
+  Preventing Mac sleep with caffeinate...
+  Dashboard → http://localhost:8000
 ```
 
-**Terminal 2 — Pre-flight commands:**
+**Terminal 2 — For all other commands:**
 ```bash
 cd ~/multi-agent-platform
-source venv/bin/activate
 ```
+> No need to activate venv in Terminal 2 — curl commands work without it
 
 ---
 
@@ -361,9 +373,7 @@ curl -X POST http://localhost:8000/api/agents/arabic_word/run
 **If platform crashes — restart quickly:**
 ```bash
 cd ~/multi-agent-platform
-source venv/bin/activate
-ulimit -n 4096
-python main.py
+./start.sh
 ```
 
 **If LM Studio stops responding:**
@@ -404,6 +414,9 @@ curl http://localhost:8000/api/arabic/today
 # Run tests
 pytest tests/ -v
 
-# Start platform
-ulimit -n 4096 && python main.py
+# Start platform (recommended)
+./start.sh
+
+# Start platform (manual alternative)
+source venv/bin/activate && ulimit -n 4096 && caffeinate -i python main.py
 ```
