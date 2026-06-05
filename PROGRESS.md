@@ -702,7 +702,102 @@ Retried exactly 3 times, recorded the error, released the running flag — platf
 
 ## 10. Orchestrator & Scheduler
 
-### Status: 🔲 Not Started Yet
+### Status: ✅ Completed
+
+### What is the Orchestrator?
+
+The orchestrator is the **manager** of the entire platform. It has two files:
+
+1. **`orchestrator/scheduler.py`** — decides WHEN each agent runs
+2. **`orchestrator/deadlock_guard.py`** — watches for stuck agents and restarts them
+
+Think of it like an airport control tower. The planes (agents) don't decide when to take off — the tower (orchestrator) tells them when it's their turn, monitors them in the air, and handles emergencies.
+
+---
+
+### `orchestrator/scheduler.py` — The Timetable
+
+APScheduler is a Python library that runs functions at specific times — like a cron job. We configure it with two types of triggers:
+
+| Trigger Type | What It Does | Example |
+|---|---|---|
+| `CronTrigger` | Runs at a specific time of day | Every day at 7:00am |
+| `IntervalTrigger` | Runs every X minutes/seconds | Every 15 minutes |
+
+#### The Full Schedule
+
+| Job | Trigger | Time |
+|---|---|---|
+| Resource Monitor | IntervalTrigger | Every 30 seconds |
+| AI-Times | CronTrigger | Daily 07:00 UTC |
+| Mailman | IntervalTrigger | Every 15 minutes |
+| Wallstreet Wolf | CronTrigger | Mon–Fri 06:30 UTC |
+| Arabic Word | CronTrigger | Daily 08:00 UTC |
+| Weekly Arabic Recap | CronTrigger | Sundays 09:00 UTC |
+| DB Cleanup | CronTrigger | Daily midnight |
+
+#### Key Concept: `max_instances=1`
+
+```python
+scheduler.add_job(agents["mailman"].run,
+                  IntervalTrigger(minutes=15),
+                  max_instances=1)
+```
+
+`max_instances=1` means if Mailman is still running when the 15-minute timer fires again, the scheduler skips that trigger instead of starting a second copy. Without this, you could end up with 10 copies of Mailman all running simultaneously — chaos!
+
+#### Why UTC Time?
+
+All schedules use UTC (Universal Time) not your local time. This means:
+- 06:30 UTC = 1:30am CDT (Central Daylight Time, UTC-5)
+- 07:00 UTC = 2:00am CDT
+- 08:00 UTC = 3:00am CDT
+
+This is intentional — agents run in the early hours when your Mac is idle and not being used for other things.
+
+---
+
+### `orchestrator/deadlock_guard.py` — The Watchdog
+
+This runs silently in the background, checking every 60 seconds whether any agent has been stuck in the "running" state for too long.
+
+#### How It Works
+
+```
+Every 60 seconds:
+  For each agent:
+    If agent._is_running == True:
+      How long has it been running?
+      If > 10 minutes:
+        Something is wrong → force restart it
+```
+
+#### Why Is This Needed?
+
+Imagine Qwen3 crashes mid-response. The agent is waiting for a response that never comes. It's stuck in `_is_running = True` forever. Without the watchdog, that agent would never run again until you restart the whole platform.
+
+With the watchdog:
+1. It detects the agent has been "running" for 10+ minutes
+2. It calls `agent.force_restart()` which resets `_is_running = False`
+3. The agent runs fresh on its next scheduled trigger
+4. The rest of the platform is completely unaffected
+
+This is the **"detect and restart crashed agents without restarting the full platform"** requirement from the assignment.
+
+#### The `asyncio.create_task()` Pattern
+
+```python
+asyncio.create_task(watchdog_loop(AGENTS))
+```
+
+This runs the watchdog **in the background** — it doesn't block anything else. Think of it like a background app on your phone that checks things quietly without interfering with what you're doing.
+
+### Test Result ✅
+```
+[Watchdog] Started — checking every 60s for stuck agents
+Scheduler configured — 7 jobs registered
+All 7 jobs added to APScheduler successfully
+```
 
 ---
 
@@ -835,13 +930,266 @@ The daily digest is emailed as a beautifully formatted HTML email and displayed 
 
 ## 15. FastAPI Backend (main.py)
 
-### Status: 🔲 Not Started Yet
+### Status: ✅ Completed
+
+### What is FastAPI?
+
+FastAPI is a Python web framework — it lets your Python code respond to requests from a browser or another program. When you open `http://localhost:8000` in your browser, FastAPI is what answers.
+
+Think of FastAPI like a restaurant:
+- The **menu** = API routes (what requests it can handle)
+- The **kitchen** = your Python functions (what actually runs)
+- The **waiter** = FastAPI (takes the request, brings back the response)
+
+### What is an API?
+
+**API = Application Programming Interface** — a set of rules for how two programs talk to each other.
+
+In our case:
+- The **dashboard** (browser) talks to the **backend** (FastAPI) via API calls
+- Every 5 seconds the browser asks: `GET /api/status` → FastAPI asks agents → returns JSON data → browser updates the display
+
+### What is JSON?
+
+JSON is a simple text format for sending data between programs. Example:
+```json
+{
+  "name": "wallstreet_wolf",
+  "last_status": "success",
+  "last_run": "2026-06-04T14:34:02"
+}
+```
+It's like a Python dictionary, but as plain text that any language can read.
+
+### The Lifespan Pattern
+
+```python
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Code here runs on STARTUP
+    init_db()
+    scheduler.start()
+    asyncio.create_task(watchdog_loop(AGENTS))
+    yield   # ← App runs here, handling requests
+    # Code here runs on SHUTDOWN
+    scheduler.shutdown()
+```
+
+The `yield` is the key — everything before it runs when the server starts, everything after runs when you press Control+C. This is a clean way to set up and tear down resources.
+
+### API Routes Built
+
+Every route has a **method** (GET or POST) and a **path** (the URL):
+
+| Method | Path | What It Does | Called By |
+|---|---|---|---|
+| `GET` | `/` | Returns the dashboard HTML page | Browser on first load |
+| `GET` | `/api/status` | All agent statuses + resources + LLM queue | Dashboard every 5s |
+| `GET` | `/api/resources/history` | Last 60 resource readings | Dashboard chart every 30s |
+| `POST` | `/api/agents/{name}/run` | Manually triggers an agent | Dashboard Run buttons |
+| `GET` | `/api/stocks` | Latest stock prices | Wallstreet tab |
+| `GET` | `/api/videos` | Latest YouTube videos | AI-Times tab |
+| `GET` | `/api/emails` | Classified email list | Mailman tab |
+| `GET` | `/api/arabic/today` | Today's Arabic word | Arabic tab |
+| `GET` | `/api/arabic/history` | Last 7 words (SRS) | Arabic tab |
+| `POST` | `/api/arabic/srs/{id}` | Update SRS box for a word | Arabic tab buttons |
+| `GET` | `/api/alarm` | Current resource alarms | Dashboard every 10s |
+
+### GET vs POST — What's the Difference?
+
+- **GET** = "Give me information" — like asking a question. Safe to call repeatedly.
+- **POST** = "Do something" — like pressing a button. Causes an action (triggers agent, updates database).
+
+### Static Files
+
+```python
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+```
+
+This tells FastAPI: "Any request to `/static/...` should serve the file from the `frontend/` folder." This is how the dashboard images (`ai_agents.png`) are served to the browser.
+
+### `asyncio.create_task()` for Agent Triggers
+
+```python
+@app.post("/api/agents/{agent_name}/run")
+async def manual_trigger(agent_name: str):
+    asyncio.create_task(AGENTS[agent_name].run())
+    return {"message": f"{agent_name} triggered"}
+```
+
+Notice we use `create_task()` instead of `await`. This means:
+- The agent starts running in the background
+- FastAPI immediately returns `{"message": "triggered"}` to the browser
+- The browser doesn't have to wait 3 minutes for the agent to finish
+- The agent runs alongside everything else
+
+### Test Result ✅
+```
+Uvicorn running on http://0.0.0.0:8000
+All API routes responding correctly
+Dashboard loading at http://localhost:8000
+Manual triggers working via curl and dashboard buttons
+```
 
 ---
 
 ## 16. Dashboard Frontend
 
-### Status: 🔲 Not Started Yet
+### Status: ✅ Completed
+
+### What is the Frontend?
+
+The frontend is everything you **see** in the browser at `http://localhost:8000`. It's built with three standard web technologies:
+
+| Technology | Role | Analogy |
+|---|---|---|
+| **HTML** | Structure — what's on the page | The skeleton of a building |
+| **CSS** | Style — how it looks | The paint, furniture, lighting |
+| **JavaScript** | Behaviour — what it does | The electricity that makes things work |
+
+All three live in a single file: `frontend/index.html`
+
+### Why a Single File?
+
+For simplicity. In a production app you'd split these into separate files. But for this project, one well-organised file is easier to manage, deploy, and read.
+
+### The Cyber Intelligence Theme
+
+The dashboard uses a custom color palette designed for readability and visual impact:
+
+| CSS Variable | Color | Used For |
+|---|---|---|
+| `--bg-primary` | `#0B0F19` (Deep Obsidian) | Page background |
+| `--bg-card` | `#1E293B` at 85% opacity | Card backgrounds |
+| `--cyan` | `#06B6D4` (Electric Turquoise) | Active elements, links, borders |
+| `--green` | `#10B981` (Vibrant Mint) | Success states, run buttons |
+| `--amber` | `#F59E0B` (Amber Orange) | Warnings, morphology section |
+| `--red` | `#EF4444` (Neon Crimson) | Errors, critical alerts |
+| `--purple` | `#8B5CF6` | Arabic/Quranic section exclusively |
+
+#### Why CSS Variables?
+
+```css
+:root {
+  --cyan: #06B6D4;
+}
+```
+
+CSS variables (declared in `:root`) let you define a color once and use it everywhere. The dark/light theme toggle works by overriding these variables — one JavaScript line changes the entire color scheme instantly.
+
+### Dark/Light Theme Toggle
+
+```javascript
+function toggleTheme() {
+  document.body.classList.toggle('light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+}
+```
+
+- `classList.toggle('light')` adds or removes the `light` CSS class on `<body>`
+- When `light` class is present, the CSS overrides all color variables with lighter versions
+- `localStorage` saves the preference so it persists when you reload the page
+
+### The Circuit Grid Background
+
+```css
+body::before {
+  background-image:
+    linear-gradient(rgba(6,182,212,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6,182,212,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+```
+
+The subtle grid lines in the background are created purely with CSS — no image needed. Two overlapping gradient lines create a crosshatch pattern at exactly 40px intervals. The `0.03` opacity makes it barely visible — enough to add depth without distracting from the data.
+
+### Live Polling — How the Dashboard Updates
+
+The dashboard doesn't refresh the whole page. Instead, JavaScript asks the API for new data every few seconds and updates only the parts that changed:
+
+```javascript
+setInterval(fetchStatus,          5000);   // every 5 seconds
+setInterval(fetchResourceHistory, 30000);  // every 30 seconds
+setInterval(fetchAlarms,          10000);  // every 10 seconds
+```
+
+`setInterval(function, milliseconds)` — calls a function repeatedly on a timer. This is what makes the dashboard feel "live" — the numbers change without any page reload.
+
+#### The Fetch Pattern
+
+```javascript
+async function fetchStatus() {
+  const data = await (await fetch('/api/status')).json();
+  document.getElementById('cpu-val').textContent = data.resources.cpu + '%';
+}
+```
+
+1. `fetch('/api/status')` — sends a GET request to FastAPI
+2. `.json()` — parses the JSON response into a JavaScript object
+3. `document.getElementById(...)` — finds the HTML element
+4. `.textContent = ...` — updates what's displayed
+
+### The 5 Dashboard Tabs
+
+Each tab is a `<div>` that gets shown or hidden:
+
+```javascript
+function switchTab(name) {
+  document.querySelectorAll('.panel').forEach(p =>
+    p.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+}
+```
+
+Only the active tab has `display: block` — all others have `display: none`. Switching tabs is instant because all the HTML already exists on the page.
+
+### Chart.js — The Resource Charts
+
+```javascript
+resourceChart = new Chart(document.getElementById('resource-chart'), {
+  type: 'line',
+  data: { labels, datasets: [
+    { label:'CPU %', data: cpu, borderColor:'#06B6D4' },
+    { label:'RAM %', data: ram, borderColor:'#8B5CF6' },
+  ]},
+  options: { animation: false }
+});
+```
+
+Chart.js is a JavaScript library that draws charts on an HTML `<canvas>` element. We use `animation: false` so the chart updates instantly without a slow animation every 30 seconds.
+
+### The Hero Banner Image
+
+```html
+<div class="hero-bg">
+  <img src="/static/ai_agents.png" alt="">
+</div>
+```
+
+The background image is served from `/static/ai_agents.png`. FastAPI serves anything in the `frontend/` folder at the `/static/` URL path. The image has `opacity: 0.45` and `filter: saturate(1.6)` applied via CSS to make it darker and more saturated so the text on top remains readable.
+
+### Key Concept: Backdrop Filter
+
+```css
+.card {
+  background: rgba(30, 41, 59, 0.85);
+  backdrop-filter: blur(8px);
+}
+```
+
+`backdrop-filter: blur(8px)` creates a frosted glass effect — the content behind the card is blurred while the card itself remains sharp. This gives the dashboard its modern "glassmorphism" look.
+
+### Test Result ✅
+```
+Dashboard loads at http://localhost:8000
+All 5 tabs switch correctly
+Resource chart updates every 30 seconds
+Agent status refreshes every 5 seconds
+Alarm banner appears/disappears correctly
+Dark/light toggle works and persists on reload
+All agent Run buttons trigger correctly
+SRS knew_it/still_learning buttons update database
+```
 
 ---
 
@@ -907,10 +1255,13 @@ All 48 tests passed. Zero failures.
 ### Requirements Checklist
 - ✅ Repository created (private for now → make public before submission)
 - ✅ README.md with full setup instructions
+- ✅ RUNBOOK.md with full instructor evaluation guide
+- ✅ TALKING_POINTS.md with demo video script
+- ✅ start.sh for easy platform startup with caffeinate
 - ✅ .gitignore properly excluding .env, token.json, credentials.json, platform.db
 - ✅ First commit includes Agent-4 use-case proposal (150 words in README)
-- 🔲 Architecture diagram (PNG in repo) — add before submission
-- 🔲 Make repository PUBLIC before submitting
+- ✅ Architecture diagram (architecture.png in repo)
+- ⚠️ Make repository PUBLIC before submitting
 
 ### Repository
 https://github.com/zaff3r-githubid/multi-agent-platform
@@ -923,7 +1274,7 @@ https://github.com/zaff3r-githubid/multi-agent-platform
 
 ## 20. Demo Video
 
-### Status: 🔲 Not Started Yet
+### Status: ⏳ In Progress
 
 ### Rules (Critical — Read Carefully)
 - ✅ Max **10 minutes** — even 10:01 = **0 marks**
