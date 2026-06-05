@@ -100,7 +100,7 @@ class Mailman(BaseAgent):
             userId="me",
             labelIds=["INBOX"],
             q="is:unread",
-            maxResults=3
+            maxResults=20
         ).execute()
 
         messages = results.get("messages", [])
