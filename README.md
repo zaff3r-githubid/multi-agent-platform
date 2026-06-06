@@ -96,14 +96,20 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Set up LM Studio
+### 4. Make the start script executable (once only)
+
+```bash
+chmod +x start.sh
+```
+
+### 5. Set up LM Studio
 
 1. Download [LM Studio](https://lmstudio.ai)
 2. Search for and download `Qwen3-14B (Q4_K_M)`
 3. Go to Developer tab → Load model → Start Server
 4. Verify: `curl http://localhost:1234/v1/models`
 
-### 5. Configure environment
+### 6. Configure environment
 
 ```bash
 cp .env.example .env
@@ -126,20 +132,20 @@ KEY_PEOPLE=important@person.com
 ARABIC_DIFFICULTY=beginner
 ```
 
-### 6. Set up Gmail App Password
+### 7. Set up Gmail App Password
 
 1. Go to [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords)
 2. Enable 2-Step Verification if not already on
 3. Create an App Password for "multi-agent-platform"
 4. Paste the 16-character password into `SMTP_PASSWORD`
 
-### 7. Set up YouTube Data API
+### 8. Set up YouTube Data API
 
 1. Go to [console.cloud.google.com](https://console.cloud.google.com)
 2. Create a project → Enable YouTube Data API v3
 3. Create an API key → paste into `YOUTUBE_API_KEY`
 
-### 8. Set up Gmail OAuth (for Mailman agent)
+### 9. Set up Gmail OAuth (for Mailman agent)
 
 1. In Google Cloud Console, enable Gmail API
 2. Create OAuth credentials (Desktop app) → download as `credentials.json`
@@ -147,7 +153,7 @@ ARABIC_DIFFICULTY=beginner
 4. Run once to authorise: `python utils/gmail_auth.py`
 5. Complete browser flow → `token.json` created automatically
 
-### 9. Initialise the database
+### 10. Initialise the database
 
 ```bash
 python -c "from database.db import init_db; init_db()"
@@ -158,9 +164,12 @@ python -c "from database.db import init_db; init_db()"
 ## Running the Platform
 
 ```bash
-source venv/bin/activate
-python main.py
+./start.sh
 ```
+
+`start.sh` automatically activates the virtual environment, sets `ulimit -n 4096`
+(prevents "too many open files" errors), runs `caffeinate` to prevent Mac sleep
+during scheduled runs, and starts the platform.
 
 You should see:
 
@@ -185,11 +194,21 @@ Open your browser at `http://localhost:8000`
 
 | Tab | What it shows |
 |---|---|
-| **Overview** | Live CPU/RAM/disk/threads, all agent status, resource history chart, LLM queue |
+| **Overview** | Live CPU/RAM/disk/threads, all agent status, resource history chart, LLM queue, AI Observability |
 | **AI-Times** | 5 news + 5 personality video cards with thumbnails and AI blurbs |
 | **Mailman** | Category breakdown pie chart, classified email list with AI summaries |
 | **Wallstreet Wolf** | Top 5 gainers, top 5 losers, full 20+ stock watchlist |
 | **Arabic Word** | Today's word card, root family tree, verse in 3 languages, audio link, SRS progress |
+
+### AI Observability
+
+The Overview tab includes a live AI Observability panel showing:
+- Total tokens used today and lifetime
+- Average tokens per second (model speed)
+- Per-agent token usage breakdown
+- Cloud cost comparison — shows what the same token usage would cost on GPT-4o, GPT-4o Mini, Claude Sonnet, Claude Haiku, Gemini 1.5 Pro, and Gemini Flash
+
+All inference stays local — this panel shows the savings from running Qwen3 on-device.
 
 ---
 
@@ -230,7 +249,8 @@ Expected output: **48 passed**
 ```
 multi-agent-platform/
 ├── README.md
-├── PROGRESS.md
+├── RUNBOOK.md
+├── start.sh
 ├── main.py
 ├── conftest.py
 ├── requirements.txt
@@ -288,6 +308,12 @@ Already handled — SQLite WAL mode and 30s timeout configured in `db.py`
 
 **Dashboard shows no data**
 Trigger agents manually using the ▶ Run buttons on the dashboard
+
+**Mac goes to sleep and agents miss their scheduled runs**
+Always start the platform with `./start.sh` — it runs `caffeinate` to prevent sleep
+
+**`permission denied: ./start.sh`**
+Run `chmod +x start.sh` once to make the script executable
 
 ---
 
