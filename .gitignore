@@ -11,3 +11,6 @@ platform.db-wal
 .DS_Store
 test_*.py
 !tests/test_*.py
+IDEAS_FOR_AGENTS.md
+TALKING_POINTS.md
+PROGRESS.md
