@@ -321,7 +321,7 @@ Run `chmod +x start.sh` once to make the script executable
 
 | Technology | Purpose |
 |---|---|
-| Python 3.14 | Backend language |
+| Python 3.12+ | Backend language |
 | LM Studio + Qwen3-14B | Local LLM inference |
 | FastAPI + Uvicorn | Web server and API |
 | APScheduler | Agent scheduling (cron + interval) |
