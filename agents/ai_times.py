@@ -121,12 +121,11 @@ class AITimes(BaseAgent):
                 ).fetchone()
 
                 if existing:
-                    # Already processed — fetch existing blurb
-                    row = conn.execute(
-                        "SELECT * FROM videos WHERE video_id=?",
-                        (video["video_id"],)
-                    ).fetchone()
-                    processed.append(dict(row))
+                    # Already suggested before — skip entirely
+                    # This prevents the same video appearing in future emails/dashboard
+                    logger.info(
+                        f"[AITimes] Skipping already-seen video: {video['title'][:50]}"
+                    )
                     continue
 
                 # Generate blurb with Qwen3
