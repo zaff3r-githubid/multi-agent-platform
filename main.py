@@ -29,6 +29,7 @@ from agents.ai_times import AITimes
 from agents.mailman import Mailman
 from agents.wallstreet_wolf import WallstreetWolf
 from agents.arabic_word import ArabicWordAgent
+from agents.inbox_cleaner import InboxCleaner
 
 # ── Instantiate all agents ────────────────────────────────────────────────────
 AGENTS = {
@@ -36,6 +37,7 @@ AGENTS = {
     "mailman":        Mailman(),
     "wallstreet_wolf": WallstreetWolf(),
     "arabic_word":    ArabicWordAgent(),
+    "inbox_cleaner":  InboxCleaner(),
 }
 
 scheduler = None
@@ -319,6 +321,53 @@ async def get_alarm():
             })
 
     return {"alarms": alarms}
+
+
+@app.get("/api/inbox-cleaner/report")
+async def get_inbox_cleaner_report():
+    """
+    Returns the InboxCleaner sender report for the dashboard.
+    Shows unique senders, email counts, and whitelist status.
+    """
+    from database.db import get_conn
+    with get_conn() as conn:
+        # Latest run date
+        latest = conn.execute(
+            "SELECT MAX(run_date) as run_date FROM inbox_cleaner_log"
+        ).fetchone()
+        run_date = latest["run_date"] if latest else None
+
+        # Sender summary — group by sender_email, sum counts
+        senders = conn.execute(
+            """
+            SELECT sender, sender_email,
+                   COUNT(*) as email_count,
+                   MAX(action) as action,
+                   MAX(cleaned_at) as last_seen
+            FROM inbox_cleaner_log
+            GROUP BY sender_email
+            ORDER BY email_count DESC
+            """
+        ).fetchall()
+
+        # Today's stats
+        stats = conn.execute(
+            """
+            SELECT
+                COUNT(*) as total,
+                SUM(CASE WHEN action='trashed'     THEN 1 ELSE 0 END) as trashed,
+                SUM(CASE WHEN action='whitelisted' THEN 1 ELSE 0 END) as whitelisted,
+                COUNT(DISTINCT sender_email)                           as unique_senders
+            FROM inbox_cleaner_log
+            WHERE run_date = (SELECT MAX(run_date) FROM inbox_cleaner_log)
+            """
+        ).fetchone()
+
+    return {
+        "run_date":      run_date,
+        "stats":         dict(stats) if stats else {},
+        "senders":       [dict(r) for r in senders],
+    }
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

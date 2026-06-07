@@ -102,4 +102,15 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     tokens_per_sec    REAL DEFAULT 0,
     called_at         DATETIME NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS inbox_cleaner_log (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_date     DATE NOT NULL,
+    sender       TEXT NOT NULL,
+    sender_email TEXT NOT NULL,
+    subject      TEXT,
+    gmail_id     TEXT UNIQUE,
+    action       TEXT NOT NULL,  -- 'trashed' or 'whitelisted'
+    cleaned_at   DATETIME NOT NULL
+);
 """

@@ -79,6 +79,19 @@ def create_scheduler(agents: dict, resource_monitor_fn) -> AsyncIOScheduler:
         max_instances=1,
     )
 
+    # ── InboxCleaner — daily at 02:00 UTC ────────────────────────────────────
+    # Runs at 2am so it cleans overnight promotions before you start your day
+    inbox_cleaner_hour = int(
+        __import__("os").getenv("INBOX_CLEANER_RUN_HOUR", "2")
+    )
+    scheduler.add_job(
+        agents["inbox_cleaner"].run,
+        CronTrigger(hour=inbox_cleaner_hour, minute=0),
+        id="inbox_cleaner",
+        name="InboxCleaner",
+        max_instances=1,
+    )
+
     # ── DB cleanup — daily at midnight ───────────────────────────────────────
     from orchestrator.resource_monitor import cleanup_old_metrics
     scheduler.add_job(

@@ -797,11 +797,15 @@
 
 <!-- ── Tabs ───────────────────────────────────────────────────────────────── -->
 <div class="tabs">
-  <div class="tab active" onclick="switchTab('overview')">Overview</div>
-  <div class="tab"        onclick="switchTab('aitimes')">AI-Times</div>
-  <div class="tab"        onclick="switchTab('mailman')">Mailman</div>
-  <div class="tab"        onclick="switchTab('stocks')">Wallstreet Wolf</div>
-  <div class="tab"        onclick="switchTab('arabic')">Arabic Word</div>
+  <div class="tab active" id="tab-btn-overview" onclick="switchTab('overview')">Overview</div>
+  <div class="tab"        id="tab-btn-aitimes"  onclick="switchTab('aitimes')">AI-Times</div>
+  <div class="tab"        id="tab-btn-mailman"  onclick="switchTab('mailman')">Mailman</div>
+  <div class="tab"        id="tab-btn-stocks"   onclick="switchTab('stocks')">Wallstreet Wolf</div>
+  <div class="tab"        id="tab-btn-arabic"   onclick="switchTab('arabic')">Arabic Word</div>
+  <div class="tab"        id="tab-btn-inbox"    onclick="switchTab('inbox')"
+       style="display:none;color:var(--purple);border-bottom-color:transparent">
+    🗑 InboxCleaner
+  </div>
 </div>
 
 <!-- ════════════ TAB 1 — OVERVIEW ════════════════════════════════════════ -->
@@ -900,6 +904,32 @@
         <h3>Cloud Cost Comparison — Lifetime Usage</h3>
         <div id="obs-cost-table">
           <div class="empty">run agents to see savings</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── InboxCleaner Toggle ────────────────────────────────────────────── -->
+  <div style="margin-top:24px;padding:16px 20px;
+              background:var(--bg-card);border:1px solid var(--border);
+              border-radius:8px;display:flex;align-items:center;
+              justify-content:space-between;gap:16px">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:var(--purple);
+                  letter-spacing:0.08em;margin-bottom:4px">
+        🗑 INBOXCLEANER — BONUS AGENT
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary)">
+        Daily Gmail Promotions cleanup · unsubscribe report · runs 02:00 UTC
+      </div>
+    </div>
+    <div class="theme-toggle" onclick="toggleInboxCleaner()"
+         title="Show/hide InboxCleaner tab">
+      <span class="toggle-label" id="inbox-toggle-label">HIDDEN</span>
+      <div class="toggle-track" id="inbox-toggle-track"
+           style="background:var(--bg-card-solid)">
+        <div class="toggle-thumb" id="inbox-toggle-thumb"
+             style="background:var(--purple);transform:translateX(0)">
         </div>
       </div>
     </div>
@@ -1008,6 +1038,62 @@
   </div>
 </div>
 
+<!-- ════════════ TAB 6 — INBOX CLEANER (hidden by default) ══════════════ -->
+<div id="tab-inbox" class="panel">
+  <div class="section-header">
+    <div>
+      <div class="section-title">🗑 InboxCleaner — Promotions Report</div>
+      <div class="section-sub">
+        Daily Gmail Promotions cleanup · moves to Trash · runs 02:00 UTC
+      </div>
+    </div>
+    <button class="run-btn" onclick="triggerAgent('inbox_cleaner')"
+            style="background:var(--purple-dim);border-color:var(--purple);
+                   color:var(--purple)">
+      ▶ Run Now
+    </button>
+  </div>
+
+  <!-- Stats row -->
+  <div class="grid-5" style="margin-bottom:18px">
+    <div class="metric-card" style="border-color:rgba(139,92,246,0.3)">
+      <div class="metric-label" style="color:var(--purple)">// Trashed Today</div>
+      <div class="metric-val" id="ic-trashed" style="color:var(--purple)">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">// Unique Senders</div>
+      <div class="metric-val ok" id="ic-senders">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-label">// Whitelisted</div>
+      <div class="metric-val ok" id="ic-whitelisted" style="color:var(--green)">—</div>
+    </div>
+    <div class="metric-card" style="grid-column:span 2">
+      <div class="metric-label">// Last Run</div>
+      <div style="font-size:14px;color:var(--text-primary);margin-top:8px"
+           id="ic-rundate">—</div>
+    </div>
+  </div>
+
+  <!-- Whitelist tip -->
+  <div style="background:var(--purple-dim);border:1px solid rgba(139,92,246,0.3);
+              border-radius:8px;padding:12px 16px;margin-bottom:18px;font-size:11px;
+              color:var(--text-secondary)">
+    💡 <strong style="color:var(--purple)">To whitelist a sender:</strong>
+    Open your <code>.env</code> file and add their email to
+    <code>INBOX_CLEANER_WHITELIST</code> (comma-separated).
+    Their emails will never be trashed in future runs.
+  </div>
+
+  <!-- Sender report table -->
+  <div class="card">
+    <h3>Sender Report — All Time</h3>
+    <div id="ic-sender-table">
+      <div class="empty">Run InboxCleaner to see your promotions senders</div>
+    </div>
+  </div>
+</div>
+
 <!-- ════════════════════════════════════════════════════════════════════════ -->
 <!-- JavaScript                                                               -->
 <!-- ════════════════════════════════════════════════════════════════════════ -->
@@ -1015,16 +1101,64 @@
   let resourceChart = null;
   let emailChart    = null;
 
+  // ── InboxCleaner tab toggle ───────────────────────────────────────────────
+  function toggleInboxCleaner() {
+    const tab   = document.getElementById('tab-btn-inbox');
+    const thumb = document.getElementById('inbox-toggle-thumb');
+    const label = document.getElementById('inbox-toggle-label');
+    const track = document.getElementById('inbox-toggle-track');
+
+    const isVisible = tab.style.display !== 'none';
+
+    if (isVisible) {
+      // Hide
+      tab.style.display = 'none';
+      thumb.style.transform = 'translateX(0)';
+      thumb.style.background = 'var(--purple)';
+      track.style.borderColor = 'var(--border-bright)';
+      label.textContent = 'HIDDEN';
+      // If user is on inbox tab, switch back to overview
+      if (document.getElementById('tab-inbox').classList.contains('active')) {
+        switchTab('overview');
+      }
+      localStorage.setItem('inboxCleanerVisible', 'false');
+    } else {
+      // Show
+      tab.style.display = 'block';
+      thumb.style.transform = 'translateX(20px)';
+      thumb.style.background = 'var(--purple)';
+      track.style.borderColor = 'var(--purple)';
+      label.textContent = 'VISIBLE';
+      localStorage.setItem('inboxCleanerVisible', 'true');
+    }
+  }
+
+  // Restore toggle state from localStorage on load
+  function restoreInboxToggle() {
+    const visible = localStorage.getItem('inboxCleanerVisible') === 'true';
+    if (visible) {
+      const tab   = document.getElementById('tab-btn-inbox');
+      const thumb = document.getElementById('inbox-toggle-thumb');
+      const label = document.getElementById('inbox-toggle-label');
+      const track = document.getElementById('inbox-toggle-track');
+      tab.style.display      = 'block';
+      thumb.style.transform  = 'translateX(20px)';
+      thumb.style.background = 'var(--purple)';
+      track.style.borderColor = 'var(--purple)';
+      label.textContent      = 'VISIBLE';
+    }
+  }
+
   function switchTab(name) {
-    const names = ['overview','aitimes','mailman','stocks','arabic'];
-    document.querySelectorAll('.tab').forEach((t,i) =>
-      t.classList.toggle('active', names[i] === name));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-btn-' + name).classList.add('active');
     document.getElementById('tab-' + name).classList.add('active');
     if (name === 'aitimes') fetchVideos();
     if (name === 'mailman') fetchEmails();
     if (name === 'stocks')  fetchStocks();
     if (name === 'arabic')  fetchArabic();
+    if (name === 'inbox')   fetchInboxCleaner();
   }
 
   function badge(status) {
@@ -1542,6 +1676,88 @@
   // Load saved theme on page load
   if (localStorage.getItem('theme') === 'light') {
     toggleTheme();
+  }
+
+  // Restore InboxCleaner toggle state on page load
+  restoreInboxToggle();
+
+  // ── InboxCleaner ──────────────────────────────────────────────────────────
+  async function fetchInboxCleaner() {
+    try {
+      const d = await (await fetch('/api/inbox-cleaner/report')).json();
+
+      // Stats
+      const stats = d.stats || {};
+      document.getElementById('ic-trashed').textContent     = stats.trashed     ?? '—';
+      document.getElementById('ic-senders').textContent     = stats.unique_senders ?? '—';
+      document.getElementById('ic-whitelisted').textContent = stats.whitelisted  ?? '—';
+      document.getElementById('ic-rundate').textContent     = d.run_date
+        ? new Date(d.run_date).toLocaleDateString(undefined, {
+            weekday:'long', year:'numeric', month:'long', day:'numeric'
+          })
+        : 'Not run yet';
+
+      // Sender table
+      const senders = d.senders || [];
+      const tbl = document.getElementById('ic-sender-table');
+
+      if (!senders.length) {
+        tbl.innerHTML = '<div class="empty">Run InboxCleaner to see your promotions senders</div>';
+        return;
+      }
+
+      const rows = senders.map(s => {
+        const isWl = s.action === 'whitelisted';
+        const badge = isWl
+          ? `<span style="background:var(--green-dim);color:var(--green);
+                          border:1px solid var(--green);padding:3px 10px;
+                          border-radius:10px;font-size:10px;letter-spacing:.05em">
+               ✓ WHITELISTED</span>`
+          : `<span style="background:var(--red-dim);color:var(--red);
+                          border:1px solid var(--red);padding:3px 10px;
+                          border-radius:10px;font-size:10px;letter-spacing:.05em">
+               ✗ UNSUBSCRIBE?</span>`;
+        return `
+          <tr style="border-bottom:1px solid var(--border)">
+            <td style="padding:10px 12px;color:var(--text-primary);font-weight:600">
+              ${s.sender}
+              <div style="font-size:10px;color:var(--text-dim);margin-top:2px">
+                ${s.sender_email}
+              </div>
+            </td>
+            <td style="padding:10px 12px;text-align:center;
+                       color:var(--purple);font-weight:700;font-size:16px">
+              ${s.email_count}
+            </td>
+            <td style="padding:10px 12px">${badge}</td>
+            <td style="padding:10px 12px;color:var(--text-dim);font-size:10px">
+              ${s.last_seen ? new Date(s.last_seen + 'Z').toLocaleDateString() : '—'}
+            </td>
+          </tr>`;
+      }).join('');
+
+      tbl.innerHTML = `
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border)">
+              <th style="padding:8px 12px;text-align:left;font-size:9px;
+                         color:var(--cyan);letter-spacing:.12em;text-transform:uppercase">
+                Sender</th>
+              <th style="padding:8px 12px;text-align:center;font-size:9px;
+                         color:var(--cyan);letter-spacing:.12em;text-transform:uppercase">
+                Emails</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;
+                         color:var(--cyan);letter-spacing:.12em;text-transform:uppercase">
+                Status</th>
+              <th style="padding:8px 12px;text-align:left;font-size:9px;
+                         color:var(--cyan);letter-spacing:.12em;text-transform:uppercase">
+                Last Seen</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>`;
+
+    } catch(e) { console.error('InboxCleaner fetch failed:', e); }
   }
 </script>
 </body>
