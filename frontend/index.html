@@ -1673,6 +1673,92 @@
     }
   }
 
+  // ── InboxCleaner Action Buttons ──────────────────────────────────────────
+  async function icWhitelist(email, safeEmail) {
+    const statusEl = document.getElementById('status-' + safeEmail);
+    if (!statusEl) return;
+
+    // Show loading state
+    statusEl.innerHTML = `<span style="color:var(--text-dim);font-size:10px">
+      ⏳ Whitelisting...</span>`;
+
+    try {
+      const resp = await fetch(
+        `/api/inbox-cleaner/whitelist?sender_email=${encodeURIComponent(email)}`,
+        { method: 'POST' }
+      );
+      const data = await resp.json();
+
+      if (resp.ok) {
+        statusEl.innerHTML = `
+          <span style="background:var(--green-dim);color:var(--green);
+                       border:1px solid var(--green);padding:4px 12px;
+                       border-radius:10px;font-size:10px;letter-spacing:.05em;
+                       display:inline-block">
+            ✓ WHITELISTED</span>`;
+      } else {
+        statusEl.innerHTML = `<span style="color:var(--red);font-size:10px">
+          ✗ Error: ${data.error || 'Unknown error'}</span>`;
+      }
+    } catch(e) {
+      statusEl.innerHTML = `<span style="color:var(--red);font-size:10px">
+        ✗ Request failed</span>`;
+    }
+  }
+
+  async function icUnsubscribe(email, safeEmail) {
+    const statusEl = document.getElementById('status-' + safeEmail);
+    if (!statusEl) return;
+
+    // Show loading state
+    statusEl.innerHTML = `<span style="color:var(--text-dim);font-size:10px">
+      ⏳ Finding unsubscribe link...</span>`;
+
+    try {
+      const resp = await fetch(
+        `/api/inbox-cleaner/unsubscribe?sender_email=${encodeURIComponent(email)}`,
+        { method: 'POST' }
+      );
+      const data = await resp.json();
+
+      if (data.method === 'one_click') {
+        // Fully automatic — done
+        statusEl.innerHTML = `
+          <span style="background:var(--cyan-dim);color:var(--cyan);
+                       border:1px solid var(--cyan);padding:4px 12px;
+                       border-radius:10px;font-size:10px;letter-spacing:.05em;
+                       display:inline-block">
+            ✓ UNSUBSCRIBED</span>`;
+
+      } else if (data.method === 'link') {
+        // Open unsubscribe URL in new tab
+        window.open(data.url, '_blank');
+        statusEl.innerHTML = `
+          <span style="background:var(--cyan-dim);color:var(--cyan);
+                       border:1px solid var(--cyan);padding:4px 12px;
+                       border-radius:10px;font-size:10px;letter-spacing:.05em;
+                       display:inline-block">
+            🔗 Opened — confirm in browser tab</span>`;
+
+      } else if (data.method === 'mailto') {
+        // Open mailto link
+        window.location.href = data.url;
+        statusEl.innerHTML = `
+          <span style="color:var(--amber);font-size:10px">
+            📧 Email opened — send to complete unsubscribe</span>`;
+
+      } else {
+        // Not found — show manual message
+        statusEl.innerHTML = `
+          <span style="color:var(--amber);font-size:10px">
+            ⚠ No unsubscribe header — open the email manually to unsubscribe</span>`;
+      }
+    } catch(e) {
+      statusEl.innerHTML = `<span style="color:var(--red);font-size:10px">
+        ✗ Request failed</span>`;
+    }
+  }
+
   // Load saved theme on page load
   if (localStorage.getItem('theme') === 'light') {
     toggleTheme();
@@ -1708,17 +1794,45 @@
 
       const rows = senders.map(s => {
         const isWl = s.action === 'whitelisted';
-        const badge = isWl
-          ? `<span style="background:var(--green-dim);color:var(--green);
-                          border:1px solid var(--green);padding:3px 10px;
-                          border-radius:10px;font-size:10px;letter-spacing:.05em">
+        const safeEmail = encodeURIComponent(s.sender_email);
+
+        // Fix date: SQLite returns "2026-06-06 12:34:56" — replace space with T for JS
+        let lastSeenStr = '—';
+        if (s.last_seen) {
+          const d = new Date(s.last_seen.includes('T') ? s.last_seen : s.last_seen.replace(' ','T') + 'Z');
+          lastSeenStr = isNaN(d) ? s.last_seen : d.toLocaleDateString();
+        }
+
+        const statusCell = isWl
+          ? `<span id="status-${safeEmail}"
+                   style="background:var(--green-dim);color:var(--green);
+                          border:1px solid var(--green);padding:4px 12px;
+                          border-radius:10px;font-size:10px;letter-spacing:.05em;
+                          display:inline-block">
                ✓ WHITELISTED</span>`
-          : `<span style="background:var(--red-dim);color:var(--red);
-                          border:1px solid var(--red);padding:3px 10px;
-                          border-radius:10px;font-size:10px;letter-spacing:.05em">
-               ✗ UNSUBSCRIBE?</span>`;
+          : `<div id="status-${safeEmail}" style="display:flex;gap:6px;flex-wrap:wrap">
+               <button onclick="icUnsubscribe('${s.sender_email}', '${safeEmail}')"
+                 style="background:var(--red-dim);color:var(--red);
+                        border:1px solid var(--red);padding:4px 12px;
+                        border-radius:10px;font-size:10px;letter-spacing:.05em;
+                        cursor:pointer;transition:all .2s"
+                 onmouseover="this.style.background='var(--red)';this.style.color='#fff'"
+                 onmouseout="this.style.background='var(--red-dim)';this.style.color='var(--red)'">
+                 ✗ Unsubscribe
+               </button>
+               <button onclick="icWhitelist('${s.sender_email}', '${safeEmail}')"
+                 style="background:var(--green-dim);color:var(--green);
+                        border:1px solid var(--green);padding:4px 12px;
+                        border-radius:10px;font-size:10px;letter-spacing:.05em;
+                        cursor:pointer;transition:all .2s"
+                 onmouseover="this.style.background='var(--green)';this.style.color='#fff'"
+                 onmouseout="this.style.background='var(--green-dim)';this.style.color='var(--green)'">
+                 ✓ Whitelist
+               </button>
+             </div>`;
+
         return `
-          <tr style="border-bottom:1px solid var(--border)">
+          <tr style="border-bottom:1px solid var(--border)" id="row-${safeEmail}">
             <td style="padding:10px 12px;color:var(--text-primary);font-weight:600">
               ${s.sender}
               <div style="font-size:10px;color:var(--text-dim);margin-top:2px">
@@ -1729,9 +1843,9 @@
                        color:var(--purple);font-weight:700;font-size:16px">
               ${s.email_count}
             </td>
-            <td style="padding:10px 12px">${badge}</td>
+            <td style="padding:10px 12px">${statusCell}</td>
             <td style="padding:10px 12px;color:var(--text-dim);font-size:10px">
-              ${s.last_seen ? new Date(s.last_seen + 'Z').toLocaleDateString() : '—'}
+              ${lastSeenStr}
             </td>
           </tr>`;
       }).join('');
@@ -1748,7 +1862,7 @@
                 Emails</th>
               <th style="padding:8px 12px;text-align:left;font-size:9px;
                          color:var(--cyan);letter-spacing:.12em;text-transform:uppercase">
-                Status</th>
+                Actions</th>
               <th style="padding:8px 12px;text-align:left;font-size:9px;
                          color:var(--cyan);letter-spacing:.12em;text-transform:uppercase">
                 Last Seen</th>

@@ -363,10 +363,211 @@ async def get_inbox_cleaner_report():
             """
         ).fetchone()
 
+    # Fix datetime format for JS — replace space with T so JS Date() parses correctly
+    sender_list = []
+    for r in senders:
+        row = dict(r)
+        if row.get("last_seen"):
+            row["last_seen"] = str(row["last_seen"]).replace(" ", "T")
+        sender_list.append(row)
+
     return {
-        "run_date":      run_date,
-        "stats":         dict(stats) if stats else {},
-        "senders":       [dict(r) for r in senders],
+        "run_date":  run_date,
+        "stats":     dict(stats) if stats else {},
+        "senders":   sender_list,
+    }
+
+
+@app.post("/api/inbox-cleaner/whitelist")
+async def whitelist_sender(sender_email: str):
+    """
+    Adds a sender email to INBOX_CLEANER_WHITELIST in .env
+    and updates all their DB records to 'whitelisted'.
+    """
+    from pathlib import Path
+
+    env_path = Path(".env")
+
+    if not env_path.exists():
+        return JSONResponse({"error": ".env file not found"}, status_code=404)
+
+    content = env_path.read_text()
+    email   = sender_email.strip().lower()
+
+    # Find existing whitelist line
+    lines   = content.splitlines()
+    updated = False
+    new_lines = []
+
+    for line in lines:
+        if line.startswith("INBOX_CLEANER_WHITELIST="):
+            current = line.split("=", 1)[1].strip()
+            existing_emails = [
+                e.strip().lower() for e in current.split(",") if e.strip()
+            ]
+            if email not in existing_emails:
+                existing_emails.append(email)
+            new_val = ",".join(existing_emails)
+            new_lines.append(f"INBOX_CLEANER_WHITELIST={new_val}")
+            updated = True
+        else:
+            new_lines.append(line)
+
+    # If INBOX_CLEANER_WHITELIST line didn't exist yet, add it
+    if not updated:
+        new_lines.append(f"INBOX_CLEANER_WHITELIST={email}")
+
+    env_path.write_text("\n".join(new_lines) + "\n")
+
+    # Also update in-memory os.environ so current session respects it immediately
+    current_wl = os.getenv("INBOX_CLEANER_WHITELIST", "")
+    existing   = [e.strip().lower() for e in current_wl.split(",") if e.strip()]
+    if email not in existing:
+        existing.append(email)
+    os.environ["INBOX_CLEANER_WHITELIST"] = ",".join(existing)
+
+    # Update DB records for this sender to 'whitelisted'
+    from database.db import get_conn
+    with get_conn() as conn:
+        conn.execute(
+            "UPDATE inbox_cleaner_log SET action='whitelisted'"
+            " WHERE sender_email=?",
+            (email,)
+        )
+        conn.commit()
+
+    logger.info(f"[InboxCleaner] Whitelisted: {email}")
+    return {"message": f"{email} added to whitelist", "status": "whitelisted"}
+
+
+@app.post("/api/inbox-cleaner/unsubscribe")
+async def unsubscribe_sender(sender_email: str):
+    """
+    Finds the List-Unsubscribe header from the most recent email
+    from this sender and attempts to unsubscribe programmatically.
+
+    Returns:
+      - method: 'one_click' | 'link' | 'mailto' | 'not_found'
+      - url: the unsubscribe URL (if method is 'link')
+      - message: human-readable result
+    """
+    import re
+    import httpx
+    from pathlib import Path
+    from database.db import get_conn
+    from google.oauth2.credentials import Credentials
+    from google.auth.transport.requests import Request
+    from googleapiclient.discovery import build
+
+    # ── 1. Find a gmail_id for this sender ───────────────────────────────────
+    with get_conn() as conn:
+        row = conn.execute(
+            "SELECT gmail_id FROM inbox_cleaner_log"
+            " WHERE sender_email=? AND gmail_id IS NOT NULL"
+            " ORDER BY cleaned_at DESC LIMIT 1",
+            (sender_email.strip().lower(),)
+        ).fetchone()
+
+    if not row or not row["gmail_id"]:
+        return JSONResponse(
+            {"method": "not_found",
+             "message": "No stored email found for this sender — "
+                        "re-run InboxCleaner to refresh"},
+            status_code=404
+        )
+
+    gmail_id = row["gmail_id"]
+
+    # ── 2. Get Gmail service ──────────────────────────────────────────────────
+    token_path = Path("token.json")
+    if not token_path.exists():
+        return JSONResponse(
+            {"method": "not_found", "message": "token.json not found"},
+            status_code=500
+        )
+
+    SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
+    creds  = Credentials.from_authorized_user_file(str(token_path), SCOPES)
+    if creds.expired and creds.refresh_token:
+        creds.refresh(Request())
+
+    service = build("gmail", "v1", credentials=creds, cache_discovery=False)
+
+    # ── 3. Fetch email headers ────────────────────────────────────────────────
+    try:
+        msg = service.users().messages().get(
+            userId="me",
+            id=gmail_id,
+            format="metadata",
+            metadataHeaders=["List-Unsubscribe", "List-Unsubscribe-Post"]
+        ).execute()
+    except Exception as e:
+        return JSONResponse(
+            {"method": "not_found",
+             "message": f"Could not fetch email from Gmail: {e}"},
+            status_code=500
+        )
+
+    headers = {
+        h["name"].lower(): h["value"]
+        for h in msg["payload"]["headers"]
+    }
+
+    unsub_header = headers.get("list-unsubscribe", "")
+    unsub_post   = headers.get("list-unsubscribe-post", "")
+
+    if not unsub_header:
+        return {
+            "method":  "not_found",
+            "message": "This sender does not include a List-Unsubscribe header. "
+                       "You will need to unsubscribe manually from inside the email."
+        }
+
+    # Parse URLs and mailto from header value: <https://...>, <mailto:...>
+    urls     = re.findall(r'<(https?://[^>]+)>', unsub_header)
+    mailto   = re.findall(r'<(mailto:[^>]+)>',   unsub_header)
+    http_url = urls[0] if urls else None
+
+    # ── 4. Try one-click unsubscribe (RFC 8058) ───────────────────────────────
+    if http_url and "one-click" in unsub_post.lower():
+        try:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=True) as client:
+                resp = await client.post(
+                    http_url,
+                    data={"List-Unsubscribe": "One-Click"},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"}
+                )
+            if resp.status_code < 400:
+                logger.info(
+                    f"[InboxCleaner] One-click unsubscribed from {sender_email}"
+                )
+                return {
+                    "method":  "one_click",
+                    "message": f"Successfully unsubscribed from {sender_email} "
+                               f"using one-click method ✓"
+                }
+        except Exception as e:
+            logger.warning(f"[InboxCleaner] One-click unsubscribe failed: {e}")
+
+    # ── 5. Return HTTP link for browser to open ───────────────────────────────
+    if http_url:
+        return {
+            "method":  "link",
+            "url":     http_url,
+            "message": f"Click the link to complete unsubscribe from {sender_email}"
+        }
+
+    # ── 6. Mailto fallback ────────────────────────────────────────────────────
+    if mailto:
+        return {
+            "method":  "mailto",
+            "url":     mailto[0],
+            "message": f"Send an email to unsubscribe from {sender_email}"
+        }
+
+    return {
+        "method":  "not_found",
+        "message": "Could not determine unsubscribe method for this sender."
     }
 
 
