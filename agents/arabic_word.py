@@ -101,41 +101,78 @@ class ArabicWordAgent(BaseAgent):
     def _pick_word(self, difficulty: str, today: date) -> tuple | None:
         """
         SRS-aware word selection.
-        Priority order:
-        1. Words due for review today (SRS boxes 2 and 3)
-        2. New words from the word list not yet seen
-        3. Random word from list as fallback
+        Priority order (fixed):
+        1. New words never seen before  ← highest priority
+        2. SRS review words due today that were NOT already shown today
+        3. Least-recently-shown word (not shown today) as fallback
+        4. Random word as absolute last resort
+
+        Bug fix: previously SRS reviews ran before new-word check, causing
+        yesterday's word (always "due" after 1 day in box 1) to repeat
+        every day instead of moving on to new vocabulary.
         """
         word_list = ALL_WORDS.get(difficulty, ALL_WORDS["beginner"])
 
         with get_conn() as conn:
-            # Check for SRS review words due today
+
+            # Words shown today — never repeat these
+            shown_today = set(
+                row[0] for row in conn.execute(
+                    "SELECT DISTINCT word FROM arabic_words"
+                    " WHERE difficulty=? AND DATE(fetched_at)=?",
+                    (difficulty, str(today))
+                ).fetchall()
+            )
+
+            # All words ever seen (regardless of date)
+            seen_ever = set(
+                row[0] for row in conn.execute(
+                    "SELECT DISTINCT word FROM arabic_words WHERE difficulty=?",
+                    (difficulty,)
+                ).fetchall()
+            )
+
+            # ── 1. Prioritise brand-new unseen words ──────────────────────────
+            unseen = [w for w in word_list if w[0] not in seen_ever]
+            if unseen:
+                choice = random.choice(unseen)
+                logger.info(f"[ArabicWord] New word selected: {choice[0]}")
+                return choice
+
+            # ── 2. SRS review — due today, not already shown today ────────────
             due_row = conn.execute(
                 "SELECT word, transliteration, root, root_transliteration, verse_ref"
                 " FROM arabic_words"
                 " WHERE difficulty=? AND next_review<=? AND srs_box < 3"
-                " ORDER BY srs_box ASC, next_review ASC LIMIT 1",
+                " ORDER BY next_review ASC, srs_box ASC LIMIT 1",
                 (difficulty, str(today))
             ).fetchone()
 
-            if due_row:
-                logger.info(f"[ArabicWord] SRS review word selected: {due_row['word']}")
+            if due_row and due_row["word"] not in shown_today:
+                logger.info(
+                    f"[ArabicWord] SRS review word selected: {due_row['word']}"
+                )
                 return tuple(due_row)
 
-            # Get already seen words
-            seen = set(
-                row[0] for row in conn.execute(
-                    "SELECT word FROM arabic_words WHERE difficulty=?",(difficulty,)
-                ).fetchall()
-            )
+            # ── 3. All words seen, none due — pick least recently shown ────────
+            oldest_row = conn.execute(
+                "SELECT word, transliteration, root, root_transliteration, verse_ref"
+                " FROM arabic_words"
+                " WHERE difficulty=? AND word NOT IN ({})".format(
+                    ",".join("?" * len(shown_today)) if shown_today else "''"
+                )
+                + " ORDER BY fetched_at ASC LIMIT 1",
+                (difficulty, *shown_today) if shown_today else (difficulty,)
+            ).fetchone()
 
-        # Find unseen words
-        unseen = [w for w in word_list if w[0] not in seen]
+            if oldest_row:
+                logger.info(
+                    f"[ArabicWord] Least-recent word selected: {oldest_row['word']}"
+                )
+                return tuple(oldest_row)
 
-        if unseen:
-            return random.choice(unseen)
-
-        # All words seen — pick random from full list
+        # ── 4. Absolute fallback ──────────────────────────────────────────────
+        logger.warning("[ArabicWord] Fallback: picking random word from list")
         return random.choice(word_list)
 
     # ── AlQuran Cloud API ─────────────────────────────────────────────────────
