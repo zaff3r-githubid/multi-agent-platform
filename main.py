@@ -378,6 +378,17 @@ async def get_inbox_cleaner_report():
     }
 
 
+@app.post("/api/inbox-cleaner/clear")
+async def clear_inbox_cleaner_report():
+    """Deletes all rows from inbox_cleaner_log — resets the sender report."""
+    from database.db import get_conn
+    with get_conn() as conn:
+        conn.execute("DELETE FROM inbox_cleaner_log")
+        conn.commit()
+    logger.info("[InboxCleaner] Sender report cleared")
+    return {"message": "Sender report cleared"}
+
+
 @app.post("/api/inbox-cleaner/whitelist")
 async def whitelist_sender(sender_email: str):
     """

@@ -1087,7 +1087,21 @@
 
   <!-- Sender report table -->
   <div class="card">
-    <h3>Sender Report — All Time</h3>
+    <div style="display:flex;justify-content:space-between;align-items:center;
+                margin-bottom:12px">
+      <h3 style="margin-bottom:0">Sender Report — All Time</h3>
+      <button onclick="icClearReport()"
+        id="ic-clear-btn"
+        style="background:var(--red-dim);color:var(--red);
+               border:1px solid var(--red);padding:5px 14px;
+               border-radius:6px;font-size:10px;letter-spacing:.08em;
+               text-transform:uppercase;cursor:pointer;transition:all .2s;
+               font-family:var(--font)"
+        onmouseover="this.style.background='var(--red)';this.style.color='#fff'"
+        onmouseout="this.style.background='var(--red-dim)';this.style.color='var(--red)'">
+        🗑 Clear Report
+      </button>
+    </div>
     <div id="ic-sender-table">
       <div class="empty">Run InboxCleaner to see your promotions senders</div>
     </div>
@@ -1756,6 +1770,36 @@
     } catch(e) {
       statusEl.innerHTML = `<span style="color:var(--red);font-size:10px">
         ✗ Request failed</span>`;
+    }
+  }
+
+  async function icClearReport() {
+    if (!confirm('Clear the entire sender report? This cannot be undone.')) return;
+
+    const btn = document.getElementById('ic-clear-btn');
+    btn.textContent = '⏳ Clearing...';
+    btn.disabled    = true;
+
+    try {
+      const resp = await fetch('/api/inbox-cleaner/clear', { method: 'POST' });
+      const data = await resp.json();
+
+      if (resp.ok) {
+        // Reset all stats to zero
+        document.getElementById('ic-trashed').textContent     = '0';
+        document.getElementById('ic-senders').textContent     = '0';
+        document.getElementById('ic-whitelisted').textContent = '0';
+        document.getElementById('ic-rundate').textContent     = '—';
+        document.getElementById('ic-sender-table').innerHTML  =
+          '<div class="empty">Report cleared — run InboxCleaner to rebuild</div>';
+      } else {
+        alert('Clear failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch(e) {
+      alert('Request failed: ' + e);
+    } finally {
+      btn.textContent = '🗑 Clear Report';
+      btn.disabled    = false;
     }
   }
 
