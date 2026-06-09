@@ -378,6 +378,21 @@ async def get_inbox_cleaner_report():
     }
 
 
+@app.post("/api/arabic/clear")
+async def clear_arabic_history():
+    """
+    Deletes all rows from arabic_words and srs_feedback tables.
+    Resets word history and SRS progress so the agent starts fresh.
+    """
+    from database.db import get_conn
+    with get_conn() as conn:
+        conn.execute("DELETE FROM arabic_words")
+        conn.execute("DELETE FROM srs_feedback")
+        conn.commit()
+    logger.info("[ArabicWord] Word history and SRS progress cleared")
+    return {"message": "Arabic word history cleared"}
+
+
 @app.post("/api/inbox-cleaner/clear")
 async def clear_inbox_cleaner_report():
     """Deletes all rows from inbox_cleaner_log — resets the sender report."""

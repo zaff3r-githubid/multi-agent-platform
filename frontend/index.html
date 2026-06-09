@@ -1029,7 +1029,21 @@
       </div>
     </div>
     <div class="card">
-      <h3>📚 SRS Progress — Word History</h3>
+      <div style="display:flex;justify-content:space-between;align-items:center;
+                  margin-bottom:8px">
+        <h3 style="margin-bottom:0">📚 SRS Progress — Word History</h3>
+        <button onclick="clearSRSHistory()"
+          id="srs-clear-btn"
+          style="background:var(--red-dim);color:var(--red);
+                 border:1px solid var(--red);padding:5px 14px;
+                 border-radius:6px;font-size:10px;letter-spacing:.08em;
+                 text-transform:uppercase;cursor:pointer;transition:all .2s;
+                 font-family:var(--font)"
+          onmouseover="this.style.background='var(--red)';this.style.color='#fff'"
+          onmouseout="this.style.background='var(--red-dim)';this.style.color='var(--red)'">
+          🗑 Clear History
+        </button>
+      </div>
       <p style="color:var(--text-dim);font-size:10px;margin-bottom:12px;letter-spacing:.02em">
         Mark each word to update your spaced repetition progress
       </p>
@@ -1770,6 +1784,33 @@
     } catch(e) {
       statusEl.innerHTML = `<span style="color:var(--red);font-size:10px">
         ✗ Request failed</span>`;
+    }
+  }
+
+  async function clearSRSHistory() {
+    if (!confirm('Clear all Arabic word history and SRS progress? This cannot be undone.\n\nThe agent will start fresh with new words on the next run.')) return;
+
+    const btn = document.getElementById('srs-clear-btn');
+    btn.textContent = '⏳ Clearing...';
+    btn.disabled    = true;
+
+    try {
+      const resp = await fetch('/api/arabic/clear', { method: 'POST' });
+      const data = await resp.json();
+
+      if (resp.ok) {
+        document.getElementById('srs-history').innerHTML =
+          '<div class="empty">History cleared — run the agent to start fresh</div>';
+        document.getElementById('arabic-word-card').innerHTML =
+          '<div class="empty" style="padding:60px 0">History cleared — click Run Now for a new word</div>';
+      } else {
+        alert('Clear failed: ' + (data.error || 'Unknown error'));
+      }
+    } catch(e) {
+      alert('Request failed: ' + e);
+    } finally {
+      btn.textContent = '🗑 Clear History';
+      btn.disabled    = false;
     }
   }
 
