@@ -1,4 +1,4 @@
-# Multi-Agent Auto-Scheduling Platform
+# Cadence — Multi-Agent Auto-Scheduling Platform
 
 > A fully local AI-powered multi-agent system — five specialized agents orchestrated by a central scheduler, running entirely on your machine using LM Studio (Qwen3-14B). No hosted LLM APIs.
 
