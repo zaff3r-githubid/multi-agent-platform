@@ -95,7 +95,7 @@ def create_scheduler(agents: dict, resource_monitor_fn) -> AsyncIOScheduler:
     # ── Leverage — Mon + Thu at 09:00 UTC ────────────────────────────────────
     scheduler.add_job(
         agents["leverage"].run,
-        CronTrigger(day_of_week="mon,thu", hour=9, minute=0),
+        CronTrigger(day_of_week="sun,wed", hour=9, minute=0),
         id="leverage",
         name="Leverage",
         max_instances=1,
