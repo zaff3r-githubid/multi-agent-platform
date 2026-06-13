@@ -1689,6 +1689,11 @@
   setInterval(fetchStatus,           5000);
   setInterval(fetchResourceHistory,  30000);
   setInterval(fetchAlarms,           10000);
+  setInterval(() => {
+    if (document.getElementById('tab-leverage').classList.contains('active')) {
+      fetchLeverage();
+    }
+  }, 30000);
 
   const saved = localStorage.getItem('arabic_difficulty');
   if (saved) document.getElementById('difficulty-select').value = saved;
