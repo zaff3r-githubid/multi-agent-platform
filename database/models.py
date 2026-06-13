@@ -103,6 +103,19 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     called_at         DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS leverage_videos (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id    TEXT UNIQUE,
+    title       TEXT,
+    channel     TEXT,
+    thumbnail   TEXT,
+    url         TEXT,
+    category    TEXT,
+    views       INTEGER DEFAULT 0,
+    blurb       TEXT,
+    fetched_at  DATETIME NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS inbox_cleaner_log (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     run_date     DATE NOT NULL,

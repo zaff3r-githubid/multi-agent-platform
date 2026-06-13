@@ -30,6 +30,7 @@ from agents.mailman import Mailman
 from agents.wallstreet_wolf import WallstreetWolf
 from agents.arabic_word import ArabicWordAgent
 from agents.inbox_cleaner import InboxCleaner
+from agents.leverage import Leverage
 
 # ── Instantiate all agents ────────────────────────────────────────────────────
 AGENTS = {
@@ -38,6 +39,7 @@ AGENTS = {
     "wallstreet_wolf": WallstreetWolf(),
     "arabic_word":    ArabicWordAgent(),
     "inbox_cleaner":  InboxCleaner(),
+    "leverage":       Leverage(),
 }
 
 scheduler = None
@@ -595,6 +597,41 @@ async def unsubscribe_sender(sender_email: str):
         "method":  "not_found",
         "message": "Could not determine unsubscribe method for this sender."
     }
+
+
+# ── Leverage API ─────────────────────────────────────────────────────────────
+@app.get("/api/leverage/videos")
+async def get_leverage_videos():
+    """Returns Leverage videos grouped by category for the dashboard tab."""
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT video_id, title, channel, thumbnail, url, category, views, blurb, fetched_at"
+            " FROM leverage_videos ORDER BY views DESC, fetched_at DESC"
+        ).fetchall()
+    grouped = {"tutorial": [], "ranked": [], "money": []}
+    for r in rows:
+        cat = r["category"]
+        if cat in grouped:
+            grouped[cat].append({
+                "video_id":  r["video_id"],
+                "title":     r["title"],
+                "channel":   r["channel"],
+                "thumbnail": r["thumbnail"],
+                "url":       r["url"],
+                "views":     r["views"],
+                "blurb":     r["blurb"],
+                "fetched_at": str(r["fetched_at"]),
+            })
+    return grouped
+
+
+@app.post("/api/leverage/clear")
+async def clear_leverage_videos():
+    """Clears all Leverage videos — resets the seen list so next run fetches fresh content."""
+    with get_conn() as conn:
+        conn.execute("DELETE FROM leverage_videos")
+        conn.commit()
+    return {"status": "ok", "message": "Leverage video history cleared"}
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────
