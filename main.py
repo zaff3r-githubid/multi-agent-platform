@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger("main")
 
 # ── Project imports ───────────────────────────────────────────────────────────
-from database.db import init_db
+from database.db import init_db, get_conn
 from orchestrator.llm_queue import llm_queue
 from orchestrator.resource_monitor import record_metrics, latest_metrics, metrics_history
 from orchestrator.scheduler import create_scheduler
@@ -67,6 +67,18 @@ async def lifespan(app: FastAPI):
     scheduler = create_scheduler(AGENTS, record_metrics)
     scheduler.start()
     logger.info("Scheduler started ✓")
+
+    # 2b. Restore any paused agents from DB
+    with get_conn() as conn:
+        paused_rows = conn.execute(
+            "SELECT agent_name FROM agent_schedule_state WHERE paused=1"
+        ).fetchall()
+    for row in paused_rows:
+        try:
+            scheduler.pause_job(row["agent_name"])
+            logger.info(f"Restored paused state for: {row['agent_name']}")
+        except Exception:
+            pass
 
     # 3. Start watchdog in background
     asyncio.create_task(watchdog_loop(AGENTS))
@@ -115,8 +127,21 @@ async def get_status():
     Returns live status of all agents + resources + LLM queue.
     Called by the dashboard every 5 seconds.
     """
+    # Build paused lookup from DB
+    with get_conn() as conn:
+        paused_rows = conn.execute(
+            "SELECT agent_name, paused FROM agent_schedule_state"
+        ).fetchall()
+    paused_map = {r["agent_name"]: bool(r["paused"]) for r in paused_rows}
+
+    agents_status = []
+    for a in AGENTS.values():
+        s = a.status()
+        s["is_paused"] = paused_map.get(a.name, False)
+        agents_status.append(s)
+
     return {
-        "agents":    [a.status() for a in AGENTS.values()],
+        "agents":    agents_status,
         "llm_queue": llm_queue.status(),
         "resources": await latest_metrics(),
     }
@@ -126,6 +151,48 @@ async def get_status():
 async def get_resource_history():
     """Returns last 60 resource readings for the dashboard chart."""
     return await metrics_history(60)
+
+
+@app.post("/api/agents/{agent_name}/pause")
+async def pause_agent(agent_name: str):
+    """Pauses the scheduled runs for an agent. Manual 'Run Now' still works."""
+    if agent_name not in AGENTS:
+        return JSONResponse({"error": f"Agent '{agent_name}' not found"}, status_code=404)
+    try:
+        scheduler.pause_job(agent_name)
+    except Exception as e:
+        logger.warning(f"APScheduler pause failed for {agent_name}: {e}")
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO agent_schedule_state (agent_name, paused, updated_at)"
+            " VALUES (?, 1, datetime('now'))"
+            " ON CONFLICT(agent_name) DO UPDATE SET paused=1, updated_at=datetime('now')",
+            (agent_name,)
+        )
+        conn.commit()
+    logger.info(f"[Scheduler] {agent_name} paused")
+    return {"agent": agent_name, "status": "paused"}
+
+
+@app.post("/api/agents/{agent_name}/resume")
+async def resume_agent(agent_name: str):
+    """Resumes the scheduled runs for an agent."""
+    if agent_name not in AGENTS:
+        return JSONResponse({"error": f"Agent '{agent_name}' not found"}, status_code=404)
+    try:
+        scheduler.resume_job(agent_name)
+    except Exception as e:
+        logger.warning(f"APScheduler resume failed for {agent_name}: {e}")
+    with get_conn() as conn:
+        conn.execute(
+            "INSERT INTO agent_schedule_state (agent_name, paused, updated_at)"
+            " VALUES (?, 0, datetime('now'))"
+            " ON CONFLICT(agent_name) DO UPDATE SET paused=0, updated_at=datetime('now')",
+            (agent_name,)
+        )
+        conn.commit()
+    logger.info(f"[Scheduler] {agent_name} resumed")
+    return {"agent": agent_name, "status": "resumed"}
 
 
 @app.post("/api/agents/{agent_name}/run")

@@ -1370,17 +1370,28 @@
       document.getElementById('queue-dot').className = 'dot' + (active > 0 ? ' busy' : '');
 
       document.getElementById('agent-list').innerHTML = (d.agents||[]).map(a => `
-        <div class="agent-row">
-          <div>
-            <div class="agent-name">${a.name}</div>
+        <div class="agent-row" style="opacity:${a.is_paused ? '0.6' : '1'}">
+          <div style="flex:1;min-width:0">
+            <div class="agent-name" style="display:flex;align-items:center;gap:6px">
+              ${a.name}
+              ${a.is_paused ? '<span style="font-size:9px;letter-spacing:.08em;color:var(--orange);background:rgba(251,146,60,.12);padding:1px 7px;border-radius:10px;border:1px solid rgba(251,146,60,.3)">PAUSED</span>' : ''}
+            </div>
             <div class="agent-detail">
               last_run: ${fmt(a.last_run)} &nbsp;|&nbsp; ${(a.last_message||'').slice(0,55)}
               ${a.crash_count > 0 ? `<span style="color:var(--red)"> | crashes: ${a.crash_count}</span>` : ''}
             </div>
           </div>
-          <div style="display:flex;align-items:center;gap:4px">
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
             ${badge(a.last_status)}
-            <button class="run-btn" onclick="triggerAgent('${a.name}')">▶</button>
+            <button class="run-btn" onclick="triggerAgent('${a.name}')"
+                    title="Run now (works even when paused)">▶</button>
+            <button class="run-btn" onclick="toggleAgentSchedule('${a.name}', ${a.is_paused})"
+                    title="${a.is_paused ? 'Resume schedule' : 'Pause schedule'}"
+                    style="border-color:${a.is_paused ? 'var(--green)' : 'var(--orange)'};
+                           color:${a.is_paused ? 'var(--green)' : 'var(--orange)'};
+                           font-size:13px;padding:3px 8px">
+              ${a.is_paused ? '▶▶' : '⏸'}
+            </button>
           </div>
         </div>`).join('');
 
@@ -2140,6 +2151,13 @@
           </div>`).join('');
       });
     } catch(e) { console.error('Leverage fetch failed:', e); }
+  }
+
+  async function toggleAgentSchedule(name, isPaused) {
+    const action = isPaused ? 'resume' : 'pause';
+    try {
+      await fetch(`/api/agents/${name}/${action}`, { method: 'POST' });
+    } catch(e) { console.error('Schedule toggle failed:', e); }
   }
 
   async function clearLeverageVideos() {

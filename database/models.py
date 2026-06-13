@@ -103,6 +103,12 @@ CREATE TABLE IF NOT EXISTS llm_usage (
     called_at         DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_schedule_state (
+    agent_name  TEXT PRIMARY KEY,
+    paused      INTEGER NOT NULL DEFAULT 0,
+    updated_at  DATETIME NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS leverage_videos (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     video_id    TEXT UNIQUE,
