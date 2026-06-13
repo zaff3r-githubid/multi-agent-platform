@@ -1201,15 +1201,15 @@
     <div id="lev-ranked"><div class="empty">Run Leverage to load videos</div></div>
   </div>
 
-  <!-- Category: Money -->
+  <!-- Category: Deep Dive -->
   <div class="card" style="margin-bottom:18px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="color:var(--green)">💰 AI Tools That Make Money</h3>
+      <h3 style="color:var(--green)">🔬 AI Suite Deep Dives</h3>
       <span style="font-size:10px;color:var(--text-dim);letter-spacing:.08em">
         SORTED BY VIEW COUNT
       </span>
     </div>
-    <div id="lev-money"><div class="empty">Run Leverage to load videos</div></div>
+    <div id="lev-deep_dive"><div class="empty">Run Leverage to load videos</div></div>
   </div>
 
   <!-- Clear button -->
@@ -2114,9 +2114,9 @@
       const data = await (await fetch('/api/leverage/videos')).json();
 
       const CATS = [
-        { key: 'tutorial', elId: 'lev-tutorial', accent: 'var(--blue)'   },
-        { key: 'ranked',   elId: 'lev-ranked',   accent: 'var(--purple)' },
-        { key: 'money',    elId: 'lev-money',    accent: 'var(--green)'  },
+        { key: 'tutorial',  elId: 'lev-tutorial',  accent: 'var(--blue)'   },
+        { key: 'ranked',    elId: 'lev-ranked',    accent: 'var(--purple)' },
+        { key: 'deep_dive', elId: 'lev-deep_dive', accent: 'var(--green)'  },
       ];
 
       CATS.forEach(({ key, elId, accent }) => {

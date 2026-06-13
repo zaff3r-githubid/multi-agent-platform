@@ -33,25 +33,13 @@ YT_VIDEOS = "https://www.googleapis.com/youtube/v3/videos"
 
 MIN_VIEWS = 30_000  # Skip videos below this threshold
 
-# Region codes to target for money category — English-speaking markets only
-MONEY_REGION_CODES = ["US", "GB", "CA", "AU"]
-
-# Title/channel keyword blocklist — filters out content not relevant to the target audience
-# Applied to the money category to avoid low-quality regional content
-MONEY_BLOCKLIST_KEYWORDS = [
-    "lakh", "crore", "rupee", "rupees", "paisa",
-    "hindi", "telugu", "tamil", "kannada", "marathi",
-    "malayalam", "bengali", "urdu", "punjabi",
-    "₹", "inr",
-]
-
 CATEGORIES = {
     "tutorial": {
         "label":   "AI Tool Tutorials",
         "icon":    "🎓",
         "color":   "#60a5fa",
         "queries": [
-            "how to use AI tools full tutorial 2024 2025",
+            "how to use AI tools full tutorial 2025",
             "ChatGPT tips tricks full potential tutorial",
             "Claude AI tutorial how to use effectively",
             "Cursor AI coding tutorial beginner to advanced",
@@ -69,16 +57,19 @@ CATEGORIES = {
             "AI tools that will blow your mind",
         ],
     },
-    "money": {
-        "label":   "AI Tools That Make Money",
-        "icon":    "💰",
+    "deep_dive": {
+        "label":   "AI Suite Deep Dives",
+        "icon":    "🔬",
         "color":   "#34d399",
         "queries": [
-            "make money with AI tools 2025",
-            "AI freelancing income side hustle 2025",
-            "earn money using ChatGPT tutorial",
-            "AI automation business income stream",
-            "passive income AI tools how to",
+            "Claude Anthropic full tutorial deep dive 2025",
+            "ChatGPT OpenAI complete guide full potential 2025",
+            "Google Gemini deep dive tutorial how to use",
+            "DeepSeek AI tutorial full walkthrough 2025",
+            "ElevenLabs tutorial complete guide voice AI",
+            "NotebookLM Google deep dive tutorial",
+            "OpenAI Sora tutorial how to use full guide",
+            "Anthropic Claude advanced features masterclass",
         ],
     },
 }
@@ -94,7 +85,6 @@ class Leverage(BaseAgent):
         category: str,
         api_key: str,
         max_results: int = 5,
-        region_code: str = "US",
     ) -> list:
         """
         Searches YouTube with order=viewCount and filters by MIN_VIEWS.
@@ -109,7 +99,7 @@ class Leverage(BaseAgent):
                 "order":            "viewCount",
                 "maxResults":       max_results,
                 "relevanceLanguage": "en",
-                "regionCode":       region_code,
+                "regionCode":       "US",
                 "videoDuration":    "medium",  # 4–20 min — excludes shorts and 3h streams
             })
             r.raise_for_status()
@@ -150,16 +140,9 @@ class Leverage(BaseAgent):
             if views < MIN_VIEWS:
                 logger.info(f"[Leverage] Skipping low-view video ({views:,} views): {item['snippet']['title'][:50]}")
                 continue
-            snippet  = item["snippet"]
-            title    = snippet.get("title", "")
-            channel  = snippet.get("channelTitle", "")
-
-            # Blocklist filter for money category — skip regional content
-            if category == "money":
-                combined = (title + " " + channel).lower()
-                if any(kw in combined for kw in MONEY_BLOCKLIST_KEYWORDS):
-                    logger.info(f"[Leverage] Blocklist filtered: {title[:50]}")
-                    continue
+            snippet = item["snippet"]
+            title   = snippet.get("title", "")
+            channel = snippet.get("channelTitle", "")
 
             videos.append({
                 "video_id":  vid_id,
@@ -190,13 +173,9 @@ class Leverage(BaseAgent):
             for cat_key, cat_info in CATEGORIES.items():
                 seen_this_run: set[str] = set()
 
-                for i, query in enumerate(cat_info["queries"]):
-                    # Rotate through English-speaking regions for money category
-                    region = MONEY_REGION_CODES[i % len(MONEY_REGION_CODES)] \
-                             if cat_key == "money" else "US"
+                for query in cat_info["queries"]:
                     videos = await self._fetch_top_videos(
-                        client, query, cat_key, api_key,
-                        max_results=5, region_code=region
+                        client, query, cat_key, api_key, max_results=5
                     )
 
                     with get_conn() as conn:
