@@ -33,6 +33,18 @@ YT_VIDEOS = "https://www.googleapis.com/youtube/v3/videos"
 
 MIN_VIEWS = 30_000  # Skip videos below this threshold
 
+# Region codes to target for money category — English-speaking markets only
+MONEY_REGION_CODES = ["US", "GB", "CA", "AU"]
+
+# Title/channel keyword blocklist — filters out content not relevant to the target audience
+# Applied to the money category to avoid low-quality regional content
+MONEY_BLOCKLIST_KEYWORDS = [
+    "lakh", "crore", "rupee", "rupees", "paisa",
+    "hindi", "telugu", "tamil", "kannada", "marathi",
+    "malayalam", "bengali", "urdu", "punjabi",
+    "₹", "inr",
+]
+
 CATEGORIES = {
     "tutorial": {
         "label":   "AI Tool Tutorials",
@@ -82,6 +94,7 @@ class Leverage(BaseAgent):
         category: str,
         api_key: str,
         max_results: int = 5,
+        region_code: str = "US",
     ) -> list:
         """
         Searches YouTube with order=viewCount and filters by MIN_VIEWS.
@@ -96,6 +109,7 @@ class Leverage(BaseAgent):
                 "order":            "viewCount",
                 "maxResults":       max_results,
                 "relevanceLanguage": "en",
+                "regionCode":       region_code,
                 "videoDuration":    "medium",  # 4–20 min — excludes shorts and 3h streams
             })
             r.raise_for_status()
@@ -136,11 +150,21 @@ class Leverage(BaseAgent):
             if views < MIN_VIEWS:
                 logger.info(f"[Leverage] Skipping low-view video ({views:,} views): {item['snippet']['title'][:50]}")
                 continue
-            snippet = item["snippet"]
+            snippet  = item["snippet"]
+            title    = snippet.get("title", "")
+            channel  = snippet.get("channelTitle", "")
+
+            # Blocklist filter for money category — skip regional content
+            if category == "money":
+                combined = (title + " " + channel).lower()
+                if any(kw in combined for kw in MONEY_BLOCKLIST_KEYWORDS):
+                    logger.info(f"[Leverage] Blocklist filtered: {title[:50]}")
+                    continue
+
             videos.append({
                 "video_id":  vid_id,
-                "title":     snippet.get("title", ""),
-                "channel":   snippet.get("channelTitle", ""),
+                "title":     title,
+                "channel":   channel,
                 "thumbnail": snippet["thumbnails"].get("medium", {}).get("url", ""),
                 "url":       f"https://www.youtube.com/watch?v={vid_id}",
                 "category":  category,
@@ -166,9 +190,13 @@ class Leverage(BaseAgent):
             for cat_key, cat_info in CATEGORIES.items():
                 seen_this_run: set[str] = set()
 
-                for query in cat_info["queries"]:
+                for i, query in enumerate(cat_info["queries"]):
+                    # Rotate through English-speaking regions for money category
+                    region = MONEY_REGION_CODES[i % len(MONEY_REGION_CODES)] \
+                             if cat_key == "money" else "US"
                     videos = await self._fetch_top_videos(
-                        client, query, cat_key, api_key, max_results=5
+                        client, query, cat_key, api_key,
+                        max_results=5, region_code=region
                     )
 
                     with get_conn() as conn:
