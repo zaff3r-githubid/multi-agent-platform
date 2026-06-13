@@ -33,6 +33,15 @@ YT_VIDEOS = "https://www.googleapis.com/youtube/v3/videos"
 
 MIN_VIEWS = 30_000  # Skip videos below this threshold
 
+# Negative keyword filter — applied to title + channel before LLM call
+# Catches clickbait, unrelated content, and low-effort channels
+EXCLUDE_KEYWORDS = [
+    "crypto", "web3", "nft", "get rich quick", "passive income",
+    "drama", "reaction", "sora reaction", "clickbait",
+    "lakh", "crore", "rupee", "₹", "inr",
+    "hindi", "telugu", "tamil", "kannada", "marathi",
+]
+
 CATEGORIES = {
     "tutorial": {
         "label":   "AI Tool Tutorials",
@@ -144,6 +153,12 @@ class Leverage(BaseAgent):
             title   = snippet.get("title", "")
             channel = snippet.get("channelTitle", "")
 
+            # Negative keyword filter — drop clickbait and irrelevant content
+            combined = (title + " " + channel).lower()
+            if any(kw in combined for kw in EXCLUDE_KEYWORDS):
+                logger.info(f"[Leverage] Excluded by keyword filter: {title[:50]}")
+                continue
+
             videos.append({
                 "video_id":  vid_id,
                 "title":     title,
@@ -196,18 +211,26 @@ class Leverage(BaseAgent):
                                 logger.info(f"[Leverage] Already seen: {video['title'][:50]}")
                                 continue
 
-                            # LLM blurb — focused on value/benefit
+                            # LLM blurb — tight, grounded, no hype
                             blurb = await llm_queue.submit(
                                 prompt=(
-                                    f"YouTube video: \"{video['title']}\"\n"
+                                    f"Title: \"{video['title']}\"\n"
                                     f"Channel: {video['channel']}\n"
-                                    f"Views: {video['views']:,}\n"
                                     f"Category: {cat_info['label']}\n\n"
-                                    "Write exactly 1 sentence explaining the practical value "
-                                    "of this video — what skill, tool, or income opportunity "
-                                    "will the viewer gain? Be specific and actionable."
+                                    "Write 2 sentences maximum.\n"
+                                    "Sentence 1: What specific AI tool or workflow does this video teach?\n"
+                                    "Sentence 2: What concrete skill or outcome will the viewer walk away with?\n\n"
+                                    "Rules:\n"
+                                    "- Be specific — name the actual tool if clear from the title\n"
+                                    "- No hype words: avoid 'incredible', 'insane', 'game-changing', 'mind-blowing'\n"
+                                    "- Do not invent features or capabilities not implied by the title\n"
+                                    "- Write in plain, professional English"
                                 ),
-                                system="You are an AI productivity coach curating high-value learning content.",
+                                system=(
+                                    "You are a technical content analyst writing factual, "
+                                    "jargon-free summaries of AI tutorial videos. "
+                                    "You only describe what is clearly stated — you never guess or embellish."
+                                ),
                                 agent_name=self.name
                             )
 
@@ -297,5 +320,5 @@ class Leverage(BaseAgent):
         counts = {k: len(v) for k, v in all_processed.items()}
         return (
             f"New videos — tutorials:{counts['tutorial']} "
-            f"ranked:{counts['ranked']} money:{counts['money']} · email sent"
+            f"ranked:{counts['ranked']} deep_dive:{counts['deep_dive']} · email sent"
         )

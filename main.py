@@ -675,7 +675,7 @@ async def get_leverage_videos():
             "SELECT video_id, title, channel, thumbnail, url, category, views, blurb, fetched_at"
             " FROM leverage_videos ORDER BY views DESC, fetched_at DESC"
         ).fetchall()
-    grouped = {"tutorial": [], "ranked": [], "money": []}
+    grouped = {"tutorial": [], "ranked": [], "deep_dive": []}
     for r in rows:
         cat = r["category"]
         if cat in grouped:
