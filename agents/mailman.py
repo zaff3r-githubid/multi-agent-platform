@@ -9,6 +9,7 @@ from agents.base_agent import BaseAgent
 from orchestrator.llm_queue import llm_queue
 from utils.email_sender import send_html_email, build_email_wrapper
 from database.db import get_conn
+from utils.gmail_health import check_gmail_token
 from dotenv import load_dotenv
 import os
 
@@ -85,6 +86,8 @@ class Mailman(BaseAgent):
 
     async def _run_logic(self) -> str:
 
+        check_gmail_token()
+
         # Load key people list from .env
         key_people_raw = os.getenv("KEY_PEOPLE", "")
         key_people = [
@@ -100,7 +103,7 @@ class Mailman(BaseAgent):
             userId="me",
             labelIds=["INBOX"],
             q="is:unread",
-            maxResults=20
+            maxResults=10
         ).execute()
 
         messages = results.get("messages", [])

@@ -28,6 +28,7 @@ from dotenv import load_dotenv
 from agents.base_agent import BaseAgent
 from database.db import get_conn
 from utils.email_sender import send_html_email, build_email_wrapper
+from utils.gmail_health import check_gmail_token
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 logger = logging.getLogger(__name__)
@@ -84,6 +85,8 @@ class InboxCleaner(BaseAgent):
     name = "inbox_cleaner"
 
     async def _run_logic(self) -> str:
+
+        check_gmail_token()
 
         # ── Load config from .env ─────────────────────────────────────────────
         whitelist_raw = os.getenv("INBOX_CLEANER_WHITELIST", "")
