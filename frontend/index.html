@@ -961,7 +961,7 @@
         🚀 LEVERAGE — AI TOOL PICKS
       </div>
       <div style="font-size:11px;color:var(--text-secondary)">
-        Top AI tutorials · ranked tools · money-making AI · runs Mon &amp; Thu 09:00 UTC
+        Deep-dive AI tool videos · top 5 by impact · runs Sun &amp; Wed 09:00 UTC
       </div>
     </div>
     <div class="theme-toggle" onclick="toggleLeverage()"
@@ -1168,9 +1168,9 @@
 
   <div class="section-header">
     <div>
-      <div class="section-title">🚀 Leverage — Top AI Tool Videos</div>
+      <div class="section-title">🔬 Leverage — AI Deep Dives</div>
       <div class="section-sub">
-        Most-watched AI tutorials · top ranked tools · money-making AI · Mon &amp; Thu 09:00 UTC
+        Top 5 most-watched deep-dive tutorials for Claude · ChatGPT · Gemini · DeepSeek &amp; more · Sun &amp; Wed 09:00 UTC
       </div>
     </div>
     <button class="run-btn" onclick="triggerAgent('leverage')"
@@ -1179,34 +1179,12 @@
     </button>
   </div>
 
-  <!-- Category: Tutorials -->
+  <!-- Category: Deep Dives (single feed) -->
   <div class="card" style="margin-bottom:18px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="color:var(--blue)">🎓 AI Tool Tutorials</h3>
+      <h3 style="color:var(--green)">🔬 AI Deep Dives</h3>
       <span style="font-size:10px;color:var(--text-dim);letter-spacing:.08em">
-        SORTED BY VIEW COUNT
-      </span>
-    </div>
-    <div id="lev-tutorial"><div class="empty">Run Leverage to load videos</div></div>
-  </div>
-
-  <!-- Category: Ranked -->
-  <div class="card" style="margin-bottom:18px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="color:var(--purple)">🏆 Top Ranked AI Tools</h3>
-      <span style="font-size:10px;color:var(--text-dim);letter-spacing:.08em">
-        SORTED BY VIEW COUNT
-      </span>
-    </div>
-    <div id="lev-ranked"><div class="empty">Run Leverage to load videos</div></div>
-  </div>
-
-  <!-- Category: Deep Dive -->
-  <div class="card" style="margin-bottom:18px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <h3 style="color:var(--green)">🔬 AI Suite Deep Dives</h3>
-      <span style="font-size:10px;color:var(--text-dim);letter-spacing:.08em">
-        SORTED BY VIEW COUNT
+        TOP 5 · SORTED BY VIEW COUNT
       </span>
     </div>
     <div id="lev-deep_dive"><div class="empty">Run Leverage to load videos</div></div>
@@ -2111,50 +2089,44 @@
   // ── Leverage ──────────────────────────────────────────────────────────────
   async function fetchLeverage() {
     try {
-      const data = await (await fetch('/api/leverage/videos')).json();
+      const data   = await (await fetch('/api/leverage/videos')).json();
+      const el     = document.getElementById('lev-deep_dive');
+      const videos = (data['deep_dive'] || []).slice(0, 5);
+      const accent = 'var(--green)';
 
-      const CATS = [
-        { key: 'tutorial',  elId: 'lev-tutorial',  accent: 'var(--blue)'   },
-        { key: 'ranked',    elId: 'lev-ranked',    accent: 'var(--purple)' },
-        { key: 'deep_dive', elId: 'lev-deep_dive', accent: 'var(--green)'  },
-      ];
+      if (!videos.length) {
+        el.innerHTML = '<div class="empty">No videos yet — run Leverage to fetch</div>';
+        return;
+      }
 
-      CATS.forEach(({ key, elId, accent }) => {
-        const el     = document.getElementById(elId);
-        const videos = data[key] || [];
-        if (!videos.length) {
-          el.innerHTML = '<div class="empty">No videos yet — run Leverage to fetch</div>';
-          return;
-        }
-        el.innerHTML = videos.map(v => `
-          <div style="display:flex;gap:12px;align-items:flex-start;
-                      padding:12px;border:1px solid var(--border);
-                      border-left:3px solid ${accent};
-                      border-radius:8px;margin-bottom:10px;
-                      background:var(--bg-card)">
-            <img src="${v.thumbnail}" alt=""
-                 style="width:120px;height:68px;object-fit:cover;
-                        border-radius:6px;flex-shrink:0">
-            <div style="flex:1;min-width:0">
-              <a href="${v.url}" target="_blank"
-                 style="font-size:12px;font-weight:700;color:var(--text-primary);
-                        text-decoration:none;display:block;margin-bottom:4px;
-                        white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-                ${v.title}
-              </a>
-              <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
-                <span style="font-size:10px;color:var(--text-dim)">${v.channel}</span>
-                <span style="font-size:10px;padding:1px 8px;border-radius:10px;
-                             background:${accent}22;color:${accent};font-weight:600">
-                  👁 ${Number(v.views).toLocaleString()} views
-                </span>
-              </div>
-              <div style="font-size:11px;color:var(--text-secondary);line-height:1.5">
-                ${v.blurb || ''}
-              </div>
+      el.innerHTML = videos.map(v => `
+        <div style="display:flex;gap:12px;align-items:flex-start;
+                    padding:12px;border:1px solid var(--border);
+                    border-left:3px solid ${accent};
+                    border-radius:8px;margin-bottom:10px;
+                    background:var(--bg-card)">
+          <img src="${v.thumbnail}" alt=""
+               style="width:120px;height:68px;object-fit:cover;
+                      border-radius:6px;flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <a href="${v.url}" target="_blank"
+               style="font-size:12px;font-weight:700;color:var(--text-primary);
+                      text-decoration:none;display:block;margin-bottom:4px;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${v.title}
+            </a>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+              <span style="font-size:10px;color:var(--text-dim)">${v.channel}</span>
+              <span style="font-size:10px;padding:1px 8px;border-radius:10px;
+                           background:rgba(52,211,153,0.1);color:${accent};font-weight:600">
+                👁 ${Number(v.views).toLocaleString()} views
+              </span>
             </div>
-          </div>`).join('');
-      });
+            <div style="font-size:11px;color:var(--text-secondary);line-height:1.5">
+              ${v.blurb || ''}
+            </div>
+          </div>
+        </div>`).join('');
     } catch(e) { console.error('Leverage fetch failed:', e); }
   }
 

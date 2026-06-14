@@ -31,54 +31,43 @@ logger = logging.getLogger(__name__)
 YT_SEARCH = "https://www.googleapis.com/youtube/v3/search"
 YT_VIDEOS = "https://www.googleapis.com/youtube/v3/videos"
 
-MIN_VIEWS = 30_000  # Skip videos below this threshold
+MIN_VIEWS = 50_000  # Skip videos below this threshold
 
-# Negative keyword filter — applied to title + channel before LLM call
-# Catches clickbait, unrelated content, and low-effort channels
+# Negative keyword filter — applied to title + channel before any LLM call.
+# Broad enough to catch machinery/equipment results, regional content, and clickbait.
 EXCLUDE_KEYWORDS = [
-    "crypto", "web3", "nft", "get rich quick", "passive income",
-    "drama", "reaction", "sora reaction", "clickbait",
-    "lakh", "crore", "rupee", "₹", "inr",
-    "hindi", "telugu", "tamil", "kannada", "marathi",
+    # Non-AI "tool" content — machinery, equipment, woodworking, etc.
+    "woodworking", "power tool", "hand tool", "cnc", "lathe", "drill press",
+    "router", "grinder", "saw", "welding", "machining", "metalworking",
+    "gardening", "lawn", "plumbing", "carpentry",
+    # Crypto / get-rich schemes
+    "crypto", "web3", "nft", "get rich", "passive income", "make money fast",
+    # Regional / non-English content signals
+    "lakh", "crore", "rupee", "₹", "inr", "paisa",
+    "hindi", "telugu", "tamil", "kannada", "marathi", "bengali", "punjabi",
+    "urdu", "gujarati", "malayalam", "odia",
+    # Low-effort content
+    "drama", "reaction", "clickbait", "shorts", "#shorts",
 ]
 
+# Single consolidated category — named AI tools only, so YouTube can't return
+# machinery or off-topic results. Queries rotate so each run surfaces different tools.
 CATEGORIES = {
-    "tutorial": {
-        "label":   "AI Tool Tutorials",
-        "icon":    "🎓",
-        "color":   "#60a5fa",
-        "queries": [
-            "how to use AI tools full tutorial 2025",
-            "ChatGPT tips tricks full potential tutorial",
-            "Claude AI tutorial how to use effectively",
-            "Cursor AI coding tutorial beginner to advanced",
-            "Perplexity AI tutorial complete guide",
-        ],
-    },
-    "ranked": {
-        "label":   "Top Ranked AI Tools",
-        "icon":    "🏆",
-        "color":   "#a78bfa",
-        "queries": [
-            "best AI tools 2025 ranked",
-            "top AI tools you should be using right now",
-            "must have AI tools 2025",
-            "AI tools that will blow your mind",
-        ],
-    },
     "deep_dive": {
-        "label":   "AI Suite Deep Dives",
-        "icon":    "🔬",
-        "color":   "#34d399",
+        "label": "AI Deep Dives",
+        "icon":  "🔬",
+        "color": "#34d399",
         "queries": [
-            "Claude Anthropic full tutorial deep dive 2025",
-            "ChatGPT OpenAI complete guide full potential 2025",
-            "Google Gemini deep dive tutorial how to use",
-            "DeepSeek AI tutorial full walkthrough 2025",
-            "ElevenLabs tutorial complete guide voice AI",
-            "NotebookLM Google deep dive tutorial",
-            "OpenAI Sora tutorial how to use full guide",
-            "Anthropic Claude advanced features masterclass",
+            "Anthropic Claude complete tutorial deep dive 2025",
+            "ChatGPT OpenAI full tutorial advanced features 2025",
+            "Google Gemini deep dive how to use full potential",
+            "DeepSeek AI complete walkthrough tutorial 2025",
+            "ElevenLabs voice AI complete guide tutorial",
+            "NotebookLM tutorial deep dive how to use",
+            "Perplexity AI full tutorial complete guide",
+            "Cursor AI coding deep dive tutorial 2025",
+            "Midjourney complete guide deep dive 2025",
+            "OpenAI o3 tutorial how to use effectively",
         ],
     },
 }
@@ -251,11 +240,11 @@ class Leverage(BaseAgent):
                             all_processed[cat_key].append(video)
                             total_new += 1
 
-                            # Cap at 4 new videos per category per run
-                            if len(all_processed[cat_key]) >= 4:
+                            # Cap at 5 new videos total per run
+                            if total_new >= 5:
                                 break
 
-                    if len(all_processed[cat_key]) >= 4:
+                    if total_new >= 5:
                         break
 
         if total_new == 0:
@@ -317,8 +306,4 @@ class Leverage(BaseAgent):
         html = build_email_wrapper("Leverage — AI Tool Picks", sections_html, "Leverage")
         send_html_email("🚀 Leverage — Top AI Tool Videos", html)
 
-        counts = {k: len(v) for k, v in all_processed.items()}
-        return (
-            f"New videos — tutorials:{counts['tutorial']} "
-            f"ranked:{counts['ranked']} deep_dive:{counts['deep_dive']} · email sent"
-        )
+        return f"New videos — deep_dive:{len(all_processed['deep_dive'])} · email sent"

@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadence — How It Works</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.07);
+    --text: #e8e8f0;
+    --dim: #6b6b80;
+    --cyan: #00d4d4;
+    --green: #00e676;
+    --purple: #a78bfa;
+    --orange: #fb923c;
+    --pink: #f472b6;
+    --yellow: #fbbf24;
+    --blue: #60a5fa;
+    --red: #f87171;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+    height: 100vh;
+    overflow: hidden;
+    user-select: none;
+  }
+
+  /* ── Background grid ──────────────────────────────────────────────────────── */
+  .bg-grid {
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Slides ──────────────────────────────────────────────────────────────── */
+  .deck { width: 100%; height: 100vh; position: relative; }
+
+  .slide {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 48px 100px;
+    opacity: 0;
+    transform: translateX(60px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    pointer-events: none;
+  }
+
+  .slide.active { opacity: 1; transform: translateX(0); pointer-events: all; }
+  .slide.exit   { opacity: 0; transform: translateX(-60px); }
+  .slide > * { position: relative; z-index: 1; }
+
+  /* ── Detail drawer ────────────────────────────────────────────────────────── */
+  .detail-drawer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 300;
+    transform: translateY(100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    max-height: 46vh;
+    overflow-y: auto;
+  }
+
+  .detail-drawer.open { transform: translateY(0); }
+
+  .drawer-inner {
+    padding: 24px 48px 32px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  .drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .drawer-title {
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    color: var(--cyan);
+    text-transform: uppercase;
+  }
+
+  .drawer-close {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-size: 11px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+  .drawer-close:hover { border-color: var(--cyan); color: var(--cyan); }
+
+  .drawer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+
+  .drawer-grid.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .drawer-grid.cols-1 { grid-template-columns: 1fr; }
+
+  .drawer-block {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 18px;
+  }
+
+  .drawer-block-title {
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .drawer-block p {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+
+  .drawer-block ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .drawer-block ul li {
+    font-size: 12px;
+    color: var(--text);
+    line-height: 1.7;
+    padding-left: 14px;
+    position: relative;
+  }
+
+  .drawer-block ul li::before {
+    content: '›';
+    position: absolute;
+    left: 0;
+    color: var(--cyan);
+  }
+
+  .drawer-block code {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1px 6px;
+    font-size: 11px;
+    color: var(--purple);
+    font-family: inherit;
+  }
+
+  .drawer-block .tag {
+    display: inline-block;
+    background: rgba(0,212,212,0.08);
+    border: 1px solid rgba(0,212,212,0.2);
+    color: var(--cyan);
+    font-size: 10px;
+    padding: 1px 8px;
+    border-radius: 10px;
+    margin: 2px 2px 2px 0;
+  }
+
+  /* ── Detail toggle button ────────────────────────────────────────────────── */
+  .detail-btn {
+    position: fixed;
+    bottom: 88px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--dim);
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    padding: 6px 18px;
+    border-radius: 20px;
+    cursor: pointer;
+    z-index: 200;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .detail-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+  .detail-btn.active { border-color: var(--cyan); color: var(--cyan); background: rgba(0,212,212,0.05); }
+  .detail-btn .btn-arrow { transition: transform 0.3s; display: inline-block; }
+  .detail-btn.active .btn-arrow { transform: rotate(180deg); }
+
+  /* ── Nav ─────────────────────────────────────────────────────────────────── */
+  .nav {
+    position: fixed;
+    bottom: 32px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 400;
+  }
+
+  .nav-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    transition: all 0.2s;
+  }
+  .nav-btn:hover { background: var(--surface); border-color: var(--cyan); color: var(--cyan); }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .nav-btn:disabled:hover { background: var(--surface2); border-color: var(--border); color: var(--text); }
+
+  .dots { display: flex; gap: 6px; }
+  .dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--border); border: 1px solid var(--dim);
+    cursor: pointer; transition: all 0.3s;
+  }
+  .dot.active { background: var(--cyan); border-color: var(--cyan); transform: scale(1.3); }
+
+  /* ── Slide 1: Cover ──────────────────────────────────────────────────────── */
+  .cover-title {
+    font-size: clamp(48px, 8vw, 96px);
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    background: linear-gradient(135deg, var(--cyan) 0%, var(--purple) 50%, var(--pink) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 4s ease-in-out infinite;
+    background-size: 200%;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .cover-tagline { font-size: 16px; color: var(--dim); margin-top: 12px; font-style: italic; letter-spacing: 0.05em; }
+
+  .cover-divider {
+    width: 120px; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+    margin: 32px auto;
+    animation: pulse-line 2s ease-in-out infinite;
+  }
+
+  @keyframes pulse-line { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
+
+  .cover-sub { font-size: 13px; color: var(--text); text-align: center; line-height: 2; }
+  .cover-sub span {
+    display: inline-block; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 4px; padding: 2px 10px; margin: 3px; font-size: 11px; letter-spacing: 0.08em;
+  }
+
+  .cover-agents { display: flex; gap: 20px; margin-top: 40px; flex-wrap: wrap; justify-content: center; }
+
+  .agent-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 24px; padding: 8px 18px; font-size: 12px;
+    animation: float-in 0.6s ease forwards; opacity: 0; transform: translateY(20px);
+  }
+
+  .agent-pill:nth-child(1) { animation-delay: 0.2s;  border-color: var(--cyan);   }
+  .agent-pill:nth-child(2) { animation-delay: 0.35s; border-color: var(--purple); }
+  .agent-pill:nth-child(3) { animation-delay: 0.5s;  border-color: var(--green);  }
+  .agent-pill:nth-child(4) { animation-delay: 0.65s; border-color: var(--yellow); }
+  .agent-pill:nth-child(5) { animation-delay: 0.8s;  border-color: var(--pink);   }
+
+  @keyframes float-in { to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Architecture slide ───────────────────────────────────────────────────── */
+  .arch-title { font-size: 13px; letter-spacing: 0.2em; color: var(--dim); text-transform: uppercase; margin-bottom: 32px; }
+  .arch-diagram { display: flex; flex-direction: column; align-items: center; width: 100%; max-width: 900px; }
+
+  .arch-box {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 28px; font-size: 13px;
+    text-align: center; animation: fade-up 0.5s ease forwards; opacity: 0;
+  }
+  .arch-box.orchestrator { border-color: var(--cyan); box-shadow: 0 0 30px rgba(0,212,212,0.15); animation-delay: 0.1s; }
+  .arch-box .label { font-size: 10px; letter-spacing: 0.15em; color: var(--dim); text-transform: uppercase; margin-bottom: 4px; }
+  .arch-box .name  { font-size: 16px; font-weight: 700; color: var(--cyan); }
+  .arch-box .detail{ font-size: 11px; color: var(--dim); margin-top: 4px; }
+
+  .arch-arrow {
+    width: 1px; height: 28px;
+    background: linear-gradient(180deg, var(--cyan), transparent);
+    position: relative; animation: grow-down 0.4s ease forwards; opacity: 0;
+  }
+  .arch-arrow::after {
+    content: ''; position: absolute; bottom: 0; left: -4px;
+    width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 8px solid var(--cyan); opacity: 0.5;
+  }
+  @keyframes grow-down { from { transform: scaleY(0); opacity: 0; } to { transform: scaleY(1); opacity: 1; } }
+
+  .arch-agents-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .arch-agent-box {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; font-size: 11px;
+    text-align: center; width: 130px; animation: fade-up 0.5s ease forwards; opacity: 0;
+  }
+  .arch-agent-box .icon  { font-size: 18px; margin-bottom: 4px; }
+  .arch-agent-box .aname { font-weight: 700; font-size: 11px; }
+  .arch-agent-box .atime { color: var(--dim); font-size: 10px; margin-top: 3px; }
+
+  .arch-agent-box:nth-child(1) { animation-delay: 0.5s;  border-color: var(--cyan);   }
+  .arch-agent-box:nth-child(2) { animation-delay: 0.65s; border-color: var(--purple); }
+  .arch-agent-box:nth-child(3) { animation-delay: 0.8s;  border-color: var(--green);  }
+  .arch-agent-box:nth-child(4) { animation-delay: 0.95s; border-color: var(--yellow); }
+  .arch-agent-box:nth-child(5) { animation-delay: 1.1s;  border-color: var(--pink);   }
+
+  .arch-shared { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .arch-shared-box {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 16px; font-size: 11px; color: var(--dim);
+    animation: fade-up 0.5s ease 1.3s forwards; opacity: 0; text-align: center;
+  }
+  .arch-shared-box .sh-title { color: var(--text); font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+
+  @keyframes fade-up { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── Agent slides ─────────────────────────────────────────────────────────── */
+  .agent-slide-header {
+    display: flex; align-items: center; gap: 16px;
+    margin-bottom: 28px; width: 100%; max-width: 920px;
+  }
+  .agent-icon-large {
+    font-size: 36px; width: 66px; height: 66px;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--surface2); border-radius: 14px; border: 1px solid var(--border); flex-shrink: 0;
+  }
+  .agent-slide-name { font-size: clamp(20px, 3vw, 30px); font-weight: 800; letter-spacing: -0.01em; }
+  .agent-slide-desc { font-size: 12px; color: var(--dim); margin-top: 4px; }
+  .agent-schedule-badge {
+    margin-left: auto; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 12px; font-size: 10px; color: var(--dim); flex-shrink: 0;
+  }
+
+  /* Flow */
+  .flow { display: flex; align-items: center; width: 100%; max-width: 920px; flex-wrap: nowrap; overflow-x: auto; }
+  .flow-step {
+    display: flex; flex-direction: column; align-items: center;
+    flex: 1; min-width: 95px;
+    animation: step-in 0.4s ease forwards; opacity: 0;
+  }
+  .flow-step:nth-child(1)  { animation-delay: 0.1s;  }
+  .flow-step:nth-child(3)  { animation-delay: 0.25s; }
+  .flow-step:nth-child(5)  { animation-delay: 0.4s;  }
+  .flow-step:nth-child(7)  { animation-delay: 0.55s; }
+  .flow-step:nth-child(9)  { animation-delay: 0.7s;  }
+  .flow-step:nth-child(11) { animation-delay: 0.85s; }
+  @keyframes step-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  .flow-node {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 8px; text-align: center; position: relative;
+  }
+  .flow-node .fn-icon   { font-size: 20px; margin-bottom: 5px; }
+  .flow-node .fn-label  { font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
+  .flow-node .fn-detail { font-size: 9px; color: var(--dim); margin-top: 4px; line-height: 1.4; }
+
+  .flow-arrow {
+    width: 28px; flex-shrink: 0; display: flex; align-items: center;
+    justify-content: center; color: var(--dim); font-size: 14px;
+    animation: arrow-pulse 2s ease-in-out infinite;
+  }
+  @keyframes arrow-pulse { 0%, 100% { opacity: 0.4; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
+
+  .agent-output {
+    width: 100%; max-width: 920px; margin-top: 20px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 18px;
+    display: flex; gap: 18px; flex-wrap: wrap;
+    animation: fade-up 0.5s ease 1s forwards; opacity: 0;
+  }
+  .output-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--dim); }
+  .output-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+
+  /* Accents */
+  .accent-cyan   { color: var(--cyan);   border-color: var(--cyan)   !important; box-shadow: 0 0 20px rgba(0,212,212,0.1); }
+  .accent-purple { color: var(--purple); border-color: var(--purple) !important; box-shadow: 0 0 20px rgba(167,139,250,0.1); }
+  .accent-green  { color: var(--green);  border-color: var(--green)  !important; box-shadow: 0 0 20px rgba(0,230,118,0.1); }
+  .accent-yellow { color: var(--yellow); border-color: var(--yellow) !important; box-shadow: 0 0 20px rgba(251,191,36,0.1); }
+  .accent-pink   { color: var(--pink);   border-color: var(--pink)   !important; box-shadow: 0 0 20px rgba(244,114,182,0.1); }
+
+  /* LLM highlight */
+  .llm-highlight { border-color: var(--purple) !important; box-shadow: 0 0 16px rgba(167,139,250,0.25) !important; position: relative; overflow: hidden; }
+  .llm-highlight::before { content: 'QWEN3-14B'; position: absolute; top: 3px; right: 5px; font-size: 7px; letter-spacing: 0.1em; color: var(--purple); opacity: 0.7; }
+  .llm-highlight::after  { content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(167,139,250,0.05) 0%, transparent 60%); pointer-events: none; }
+
+  /* ── Summary slide ────────────────────────────────────────────────────────── */
+  .final-grid {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    gap: 12px; width: 100%; max-width: 900px; margin-top: 28px;
+  }
+  .final-card {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 10px; text-align: center;
+    animation: fade-up 0.5s ease forwards; opacity: 0;
+  }
+  .final-card:nth-child(1) { animation-delay: 0.1s;  border-color: var(--cyan);   }
+  .final-card:nth-child(2) { animation-delay: 0.25s; border-color: var(--purple); }
+  .final-card:nth-child(3) { animation-delay: 0.4s;  border-color: var(--green);  }
+  .final-card:nth-child(4) { animation-delay: 0.55s; border-color: var(--yellow); }
+  .final-card:nth-child(5) { animation-delay: 0.7s;  border-color: var(--pink);   }
+  .final-card .fc-icon { font-size: 26px; margin-bottom: 8px; }
+  .final-card .fc-name { font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  .final-card .fc-fact { font-size: 10px; color: var(--dim); line-height: 1.6; }
+
+  .final-tagline { font-size: clamp(14px, 2vw, 20px); color: var(--text); text-align: center; margin-top: 36px; animation: fade-up 0.5s ease 0.9s forwards; opacity: 0; }
+  .final-tagline em { font-style: italic; color: var(--cyan); }
+
+  /* ── Misc ─────────────────────────────────────────────────────────────────── */
+  .slide-num { position: fixed; top: 24px; right: 32px; font-size: 11px; color: var(--dim); letter-spacing: 0.1em; z-index: 200; }
+  .kb-hint { position: fixed; bottom: 88px; right: 32px; font-size: 10px; color: var(--dim); letter-spacing: 0.08em; opacity: 0.5; }
+  .kb-key { display: inline-block; background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div class="bg-grid"></div>
+<div class="slide-num" id="slideNum">01 / 08</div>
+<div class="kb-hint"><span class="kb-key">←</span> <span class="kb-key">→</span> to navigate · <span class="kb-key">D</span> details</div>
+
+<div class="deck" id="deck">
+
+  <!-- ── SLIDE 1: Cover ──────────────────────────────────────────────────── -->
+  <div class="slide active" id="slide-0">
+    <div class="cover-title">Cadence</div>
+    <div class="cover-tagline">Your day, in rhythm — five agents working in sync so nothing slips.</div>
+    <div class="cover-divider"></div>
+    <div class="cover-sub">
+      <span>Python 3.12</span><span>Qwen3-14B</span><span>LM Studio</span>
+      <span>FastAPI</span><span>APScheduler</span><span>SQLite</span>
+      <span>Local AI — No Cloud APIs</span>
+    </div>
+    <div class="cover-agents">
+      <div class="agent-pill">📰 AI-Times</div>
+      <div class="agent-pill">📬 Mailman</div>
+      <div class="agent-pill">📈 Wallstreet Wolf</div>
+      <div class="agent-pill">🕌 Arabic Word</div>
+      <div class="agent-pill">🗑 InboxCleaner</div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 2: Architecture ───────────────────────────────────────────── -->
+  <div class="slide" id="slide-1">
+    <div class="arch-title">System Architecture</div>
+    <div class="arch-diagram">
+      <div class="arch-box orchestrator" style="animation-delay:0.1s;width:380px">
+        <div class="label">Central Orchestrator</div>
+        <div class="name">APScheduler + FastAPI</div>
+        <div class="detail">Fires each agent on its cron schedule · asyncio.Semaphore(1) prevents LLM deadlocks</div>
+      </div>
+      <div class="arch-arrow" style="animation-delay:0.3s"></div>
+      <div class="arch-agents-row">
+        <div class="arch-agent-box"><div class="icon">📰</div><div class="aname">AI-Times</div><div class="atime">07:00 UTC daily</div></div>
+        <div class="arch-agent-box"><div class="icon">📬</div><div class="aname">Mailman</div><div class="atime">Every 15 min</div></div>
+        <div class="arch-agent-box"><div class="icon">📈</div><div class="aname">Wallstreet Wolf</div><div class="atime">06:30 UTC M–F</div></div>
+        <div class="arch-agent-box"><div class="icon">🕌</div><div class="aname">Arabic Word</div><div class="atime">08:00 UTC daily</div></div>
+        <div class="arch-agent-box"><div class="icon">🗑</div><div class="aname">InboxCleaner</div><div class="atime">02:00 UTC daily</div></div>
+      </div>
+      <div class="arch-arrow" style="animation-delay:1.2s"></div>
+      <div class="arch-shared">
+        <div class="arch-shared-box"><div class="sh-title">🧠 Qwen3-14B</div>LM Studio · localhost:1234</div>
+        <div class="arch-shared-box"><div class="sh-title">🗄 SQLite</div>platform.db · shared state</div>
+        <div class="arch-shared-box"><div class="sh-title">📧 Gmail API</div>OAuth2 · send + read</div>
+        <div class="arch-shared-box"><div class="sh-title">🌐 External APIs</div>YouTube · yfinance · AlQuran</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 3: AI-Times ──────────────────────────────────────────────── -->
+  <div class="slide" id="slide-2">
+    <div class="agent-slide-header">
+      <div class="agent-icon-large">📰</div>
+      <div>
+        <div class="agent-slide-name accent-cyan">AI-Times</div>
+        <div class="agent-slide-desc">Daily AI news video digest — curated and summarised automatically</div>
+      </div>
+      <div class="agent-schedule-badge">⏰ 07:00 UTC · daily</div>
+    </div>
+    <div class="flow">
+      <div class="flow-step"><div class="flow-node accent-cyan"><div class="fn-icon">🔎</div><div class="fn-label">YouTube Search</div><div class="fn-detail">2 queries: AI news + AI interviews · maxResults=10 each</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">🔁</div><div class="fn-label">Dedup Check</div><div class="fn-detail">Skip videos already seen in SQLite · never re-digest</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node llm-highlight"><div class="fn-icon">🧠</div><div class="fn-label">AI Summary</div><div class="fn-detail">Qwen3 summarises title + description in 2 sentences</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">🗄</div><div class="fn-label">Save to DB</div><div class="fn-detail">video_id · title · summary · url stored in SQLite</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node accent-cyan"><div class="fn-icon">📧</div><div class="fn-label">Email Digest</div><div class="fn-detail">HTML email with cards for each video + thumbnail link</div></div></div>
+    </div>
+    <div class="agent-output">
+      <div class="output-item"><div class="output-dot" style="background:var(--cyan)"></div>Fetches up to 20 videos per run</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--cyan)"></div>2 categories: Breaking News + Interviews</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--cyan)"></div>Permanent deduplication across all runs</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--purple)"></div>LLM: 1 call per new video</div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 4: Mailman ───────────────────────────────────────────────── -->
+  <div class="slide" id="slide-3">
+    <div class="agent-slide-header">
+      <div class="agent-icon-large">📬</div>
+      <div>
+        <div class="agent-slide-name accent-purple">Mailman</div>
+        <div class="agent-slide-desc">Classifies unread emails into 7 categories and labels them in Gmail</div>
+      </div>
+      <div class="agent-schedule-badge">⏰ Every 15 min</div>
+    </div>
+    <div class="flow">
+      <div class="flow-step"><div class="flow-node accent-purple"><div class="fn-icon">📥</div><div class="fn-label">Fetch Inbox</div><div class="fn-detail">Gmail API · unread only · maxResults=10</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">🔐</div><div class="fn-label">Token Check</div><div class="fn-detail">gmail_health.py verifies OAuth2 before touching emails</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node llm-highlight"><div class="fn-icon">🧠</div><div class="fn-label">Classify</div><div class="fn-detail">URGENT · ACTION · FOLLOW_UP · NEWSLETTER · NOTIFICATION · PERSONAL · OTHER</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">🏷</div><div class="fn-label">Label + Star</div><div class="fn-detail">Creates Gmail label · Stars URGENT + Key People</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node accent-purple"><div class="fn-icon">📊</div><div class="fn-label">Summary Email</div><div class="fn-detail">Category bars · urgent list · key people section</div></div></div>
+    </div>
+    <div class="agent-output">
+      <div class="output-item"><div class="output-dot" style="background:var(--purple)"></div>7 categories as required by assignment</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--purple)"></div>Auto-creates Gmail labels if missing</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--purple)"></div>KEY_PEOPLE env var for VIP detection</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--purple)"></div>LLM: 2 calls per email (classify + summarise)</div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 5: Wallstreet Wolf ───────────────────────────────────────── -->
+  <div class="slide" id="slide-4">
+    <div class="agent-slide-header">
+      <div class="agent-icon-large">📈</div>
+      <div>
+        <div class="agent-slide-name accent-green">Wallstreet Wolf</div>
+        <div class="agent-slide-desc">Real-time market brief for 21 tickers across 4 sectors + 5 FX pairs</div>
+      </div>
+      <div class="agent-schedule-badge">⏰ 06:30 UTC · Mon–Fri</div>
+    </div>
+    <div class="flow">
+      <div class="flow-step"><div class="flow-node accent-green"><div class="fn-icon">📡</div><div class="fn-label">yfinance Pull</div><div class="fn-detail">21 tickers: Tech · Finance · Energy · Index ETFs</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">💱</div><div class="fn-label">FX Rates</div><div class="fn-detail">5 pairs: USD/CAD EUR GBP JPY PKR</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node llm-highlight"><div class="fn-icon">🧠</div><div class="fn-label">Market Brief</div><div class="fn-detail">Qwen3 writes analyst-style commentary on movers + macro themes</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">🗄</div><div class="fn-label">Save to DB</div><div class="fn-detail">market_data table: price · change% · volume</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node accent-green"><div class="fn-icon">📧</div><div class="fn-label">Market Email</div><div class="fn-detail">Sector tables · movers · FX section · AI commentary</div></div></div>
+    </div>
+    <div class="agent-output">
+      <div class="output-item"><div class="output-dot" style="background:var(--green)"></div>Runs at US pre-market (06:30 UTC)</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--green)"></div>Skips weekends automatically</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--green)"></div>Top gainers and losers highlighted</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--purple)"></div>LLM: 1 call per run (full brief)</div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 6: Arabic Word ───────────────────────────────────────────── -->
+  <div class="slide" id="slide-5">
+    <div class="agent-slide-header">
+      <div class="agent-icon-large">🕌</div>
+      <div>
+        <div class="agent-slide-name accent-yellow">Arabic Word of the Day</div>
+        <div class="agent-slide-desc">Quranic vocabulary with spaced repetition — Beginner · Intermediate · Advanced</div>
+      </div>
+      <div class="agent-schedule-badge">⏰ 08:00 UTC · daily</div>
+    </div>
+    <div class="flow">
+      <div class="flow-step"><div class="flow-node accent-yellow"><div class="fn-icon">🎯</div><div class="fn-label">SRS Pick</div><div class="fn-detail">Leitner 3-box: new words first → reviews due → least recent</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">📖</div><div class="fn-label">AlQuran API</div><div class="fn-detail">Verse in Arabic + English + Urdu + audio URL</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node llm-highlight"><div class="fn-icon">🧠</div><div class="fn-label">Deep Analysis</div><div class="fn-detail">Root · verb form (I–X) · meanings · root family · context</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">❓</div><div class="fn-label">Micro-Quiz</div><div class="fn-detail">Yesterday's word becomes today's quiz question</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node accent-yellow"><div class="fn-icon">📧</div><div class="fn-label">Daily Email</div><div class="fn-detail">Arabic calligraphy · verse · analysis · quiz · Sunday recap</div></div></div>
+    </div>
+    <div class="agent-output">
+      <div class="output-item"><div class="output-dot" style="background:var(--yellow)"></div>3 difficulty tiers: Beginner / Intermediate / Advanced</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--yellow)"></div>Never repeats a word until all are seen</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--yellow)"></div>Sunday recap email with the week's words</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--purple)"></div>LLM: 1 call per run (linguistic deep-dive)</div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 7: InboxCleaner ──────────────────────────────────────────── -->
+  <div class="slide" id="slide-6">
+    <div class="agent-slide-header">
+      <div class="agent-icon-large">🗑</div>
+      <div>
+        <div class="agent-slide-name accent-pink">InboxCleaner</div>
+        <div class="agent-slide-desc">Bonus agent — automatically trashes promotional emails at 02:00 UTC</div>
+      </div>
+      <div class="agent-schedule-badge">⏰ 02:00 UTC · daily</div>
+    </div>
+    <div class="flow">
+      <div class="flow-step"><div class="flow-node accent-pink"><div class="fn-icon">📂</div><div class="fn-label">Scan Promotions</div><div class="fn-detail">Gmail CATEGORY_PROMOTIONS label — all messages</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">✅</div><div class="fn-label">Whitelist Check</div><div class="fn-detail">Skip senders in INBOX_CLEANER_WHITELIST env var</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">🗑</div><div class="fn-label">Trash / Delete</div><div class="fn-detail">Moves to Trash or permanent delete (configurable)</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node"><div class="fn-icon">📊</div><div class="fn-label">Sender Report</div><div class="fn-detail">Tracks count per sender — stored in SQLite</div></div></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step"><div class="flow-node accent-pink"><div class="fn-icon">🚫</div><div class="fn-label">Unsubscribe</div><div class="fn-detail">RFC 8058 one-click from dashboard · fallback to URL</div></div></div>
+    </div>
+    <div class="agent-output">
+      <div class="output-item"><div class="output-dot" style="background:var(--pink)"></div>No LLM needed — rule-based label filter</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--pink)"></div>Whitelist managed from dashboard (writes to .env)</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--pink)"></div>RFC 8058 one-click unsubscribe from dashboard</div>
+      <div class="output-item"><div class="output-dot" style="background:var(--pink)"></div>Summary email with sender breakdown table</div>
+    </div>
+  </div>
+
+  <!-- ── SLIDE 8: Summary ───────────────────────────────────────────────── -->
+  <div class="slide" id="slide-7">
+    <div style="font-size:13px;letter-spacing:0.2em;color:var(--dim);text-transform:uppercase;margin-bottom:28px">All Five Agents</div>
+    <div class="final-grid">
+      <div class="final-card"><div class="fc-icon">📰</div><div class="fc-name" style="color:var(--cyan)">AI-Times</div><div class="fc-fact">YouTube API → Qwen3 summaries → Email digest · Permanent video dedup</div></div>
+      <div class="final-card"><div class="fc-icon">📬</div><div class="fc-name" style="color:var(--purple)">Mailman</div><div class="fc-fact">Gmail API → 7-category LLM classify → Labels + Stars → Summary email</div></div>
+      <div class="final-card"><div class="fc-icon">📈</div><div class="fc-name" style="color:var(--green)">Wallstreet Wolf</div><div class="fc-fact">yfinance + FX → Qwen3 analyst brief → Market email at US open</div></div>
+      <div class="final-card"><div class="fc-icon">🕌</div><div class="fc-name" style="color:var(--yellow)">Arabic Word</div><div class="fc-fact">SRS Leitner system → AlQuran API → Qwen3 analysis → Daily email + quiz</div></div>
+      <div class="final-card"><div class="fc-icon">🗑</div><div class="fc-name" style="color:var(--pink)">InboxCleaner</div><div class="fc-fact">Gmail Promotions → Whitelist filter → Trash → Sender report + unsubscribe</div></div>
+    </div>
+    <div class="final-tagline">One orchestrator. Five agents. Fully local. <em>Zero cloud API calls.</em></div>
+  </div>
+
+</div><!-- /deck -->
+
+<!-- Detail toggle button -->
+<button class="detail-btn" id="detailBtn" onclick="toggleDetails()">
+  <span>ℹ DETAILS</span> <span class="btn-arrow">▲</span>
+</button>
+
+<!-- Detail drawer -->
+<div class="detail-drawer" id="detailDrawer">
+  <div class="drawer-inner">
+    <div class="drawer-header">
+      <div class="drawer-title" id="drawerTitle">// Details</div>
+      <button class="drawer-close" onclick="toggleDetails()">✕ CLOSE</button>
+    </div>
+    <div id="drawerContent"></div>
+  </div>
+</div>
+
+<!-- Navigation -->
+<div class="nav">
+  <button class="nav-btn" id="prevBtn" onclick="navigate(-1)" disabled>← PREV</button>
+  <div class="dots" id="dots"></div>
+  <button class="nav-btn" id="nextBtn" onclick="navigate(1)">NEXT →</button>
+</div>
+
+<script>
+  const TOTAL = 8;
+  let current = 0;
+  let drawerOpen = false;
+
+  // ── Detail content per slide ────────────────────────────────────────────────
+  const DETAILS = [
+    {
+      title: '// About Cadence',
+      html: `<div class="drawer-grid cols-3">
+        <div class="drawer-block">
+          <div class="drawer-block-title">What is Cadence?</div>
+          <p>Cadence is a fully local multi-agent automation platform. Five specialised AI agents run on a schedule, each performing a distinct daily task — from reading your emails to summarising stock markets — all powered by a local language model with zero cloud API costs.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Why "Cadence"?</div>
+          <p>Cadence means rhythm and tempo. The platform keeps your information flow on beat — agents fire at precisely the right times throughout the day so you wake up to a full briefing, not a pile of unread noise. Your day, already in motion before you open a browser.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Key design principles</div>
+          <ul>
+            <li>All AI inference runs locally — no data leaves your machine</li>
+            <li>One LLM instance shared via a queue — no deadlocks</li>
+            <li>Every agent inherits from BaseAgent — consistent retry, logging, and crash recovery</li>
+            <li>SQLite for zero-config persistence</li>
+            <li>Single-page dashboard polls every 5 seconds</li>
+          </ul>
+        </div>
+      </div>`
+    },
+    {
+      title: '// Architecture Details',
+      html: `<div class="drawer-grid">
+        <div class="drawer-block">
+          <div class="drawer-block-title">How the orchestrator works</div>
+          <p>On startup, FastAPI's lifespan manager initialises the database, instantiates all agent objects, then passes them to <code>create_scheduler()</code>. APScheduler registers each agent's <code>.run()</code> method as a job with a <code>CronTrigger</code> or <code>IntervalTrigger</code>. The scheduler runs inside the same <code>asyncio</code> event loop as FastAPI — meaning scheduled jobs and HTTP requests cooperate via <code>await</code> rather than fighting over threads.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">The LLM Queue — asyncio.Semaphore(1)</div>
+          <p>Every LLM call goes through <code>llm_queue.submit()</code>. Internally this acquires an <code>asyncio.Semaphore(1)</code> — only one agent can hold the lock at a time. Others suspend at the <code>await</code> and yield back to the event loop. This prevents LM Studio from receiving concurrent requests that would cause deadlocks or corrupted responses. Token counts, response time, and tokens/sec are captured per call and stored in the <code>llm_usage</code> table for the AI Observability dashboard.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Shared infrastructure</div>
+          <ul>
+            <li><strong>SQLite</strong> — 9 tables, one file, zero server config</li>
+            <li><strong>Gmail OAuth2</strong> — one <code>token.json</code> shared by Mailman and InboxCleaner, auto-refreshed</li>
+            <li><strong>BaseAgent</strong> — retry loop (3 attempts), idempotency guard, force_restart(), DB run logging</li>
+            <li><strong>Pause/Resume</strong> — per-agent schedule toggle persisted to <code>agent_schedule_state</code> table, restored on startup</li>
+          </ul>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Deadlock prevention &amp; watchdog</div>
+          <p>A <code>watchdog_loop()</code> task runs in the background and checks if any agent's <code>_is_running</code> flag has been held for an abnormally long time. If so, it calls <code>force_restart()</code> which resets the flag and re-triggers the agent. A <code>max_instances=1</code> guard on every scheduler job prevents double-firing if a previous run hasn't finished.</p>
+        </div>
+      </div>`
+    },
+    {
+      title: '// AI-Times — Technical Detail',
+      html: `<div class="drawer-grid cols-3">
+        <div class="drawer-block">
+          <div class="drawer-block-title">YouTube Data API v3</div>
+          <p>Two separate <code>GET /search</code> calls using <code>httpx.AsyncClient</code>. Query 1 targets breaking AI news, Query 2 targets researcher interviews and podcasts. Both use <code>order=relevance</code>, <code>type=video</code>, <code>publishedAfter</code> set to 96 hours ago, and <code>maxResults=10</code>. Videos without a <code>videoId</code> in the response are silently skipped.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Deduplication strategy</div>
+          <p>Before any LLM call, the agent checks <code>SELECT id FROM videos WHERE video_id=?</code>. If a row exists, it <code>continue</code>s — skipping entirely. This means the same video will never appear in two email digests regardless of how many times the YouTube API returns it. The <code>videos</code> table acts as a permanent seen-list across all runs.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">LLM prompt design</div>
+          <p>The blurb prompt passes the video title, channel name, and category. It asks Qwen3 for one sentence explaining why the video matters to someone following AI developments, with an instruction to be specific and insightful. The system prompt frames the model as an AI research analyst — this improves output quality over a generic assistant persona.</p>
+        </div>
+      </div>`
+    },
+    {
+      title: '// Mailman — Technical Detail',
+      html: `<div class="drawer-grid">
+        <div class="drawer-block">
+          <div class="drawer-block-title">Gmail API flow</div>
+          <p>Fetches unread message IDs with <code>users().messages().list()</code>, then retrieves each message with <code>format="metadata"</code> and <code>metadataHeaders=["From","Subject","Date"]</code>. Only the header and <code>snippet</code> (first 200 chars) are sent to the LLM — full body is never fetched, keeping prompts short and token costs low.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Classification reliability</div>
+          <p>The LLM response is cleaned by taking the first word and uppercasing it. Any unrecognised value defaults to <code>OTHER</code>. This guards against model verbosity — even if Qwen3 returns "NEWSLETTER — this is a marketing email", the parser extracts just "NEWSLETTER". Two calls per email: one for category, one for a 15-word summary.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Gmail labelling</div>
+          <p><code>_get_or_create_label()</code> checks existing labels by name (case-insensitive) before creating. Labels are created with <code>labelListVisibility=labelShow</code> so they appear in the Gmail sidebar. URGENT emails and KEY_PEOPLE matches receive the system <code>STARRED</code> label via a second <code>modify()</code> call.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Token health check</div>
+          <p><code>check_gmail_token()</code> runs before any email is fetched. It tries to refresh an expired access token using the stored refresh token, then makes a lightweight <code>getProfile</code> call to verify the token actually works. If the token is revoked (common after 7 days in Google's Testing mode), it raises <code>RuntimeError</code> with the exact re-auth command rather than crashing mid-run.</p>
+        </div>
+      </div>`
+    },
+    {
+      title: '// Wallstreet Wolf — Technical Detail',
+      html: `<div class="drawer-grid cols-3">
+        <div class="drawer-block">
+          <div class="drawer-block-title">Market data via yfinance</div>
+          <p>Calls <code>yf.Tickers(" ".join(ALL_TICKERS)).history(period="2d")</code> to get the last two trading days of OHLCV data for 21 tickers. Percentage change is calculated as <code>(close_today - close_yesterday) / close_yesterday × 100</code>. FX pairs use Yahoo Finance ticker suffixes like <code>CAD=X</code>, <code>EUR=X</code>.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">The 21 tickers watched</div>
+          <ul>
+            <li><strong>Tech:</strong> AAPL MSFT NVDA GOOGL META AMZN TSLA AMD</li>
+            <li><strong>Finance:</strong> JPM GS BAC V MA</li>
+            <li><strong>Energy:</strong> XOM CVX NEE BP</li>
+            <li><strong>Index ETFs:</strong> SPY QQQ DIA IWM VTI</li>
+            <li><strong>FX:</strong> USD/CAD EUR GBP JPY PKR</li>
+          </ul>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">LLM market commentary</div>
+          <p>All ticker prices, percentage changes, and FX rates are bundled into a single structured prompt. Qwen3 is instructed to write in the tone of a professional financial newsletter — identifying notable movers, explaining macro themes, and avoiding speculation. One LLM call per run regardless of how many tickers moved.</p>
+        </div>
+      </div>`
+    },
+    {
+      title: '// Arabic Word — Technical Detail',
+      html: `<div class="drawer-grid">
+        <div class="drawer-block">
+          <div class="drawer-block-title">Spaced Repetition System (SRS)</div>
+          <p>Implements a Leitner 3-box system. Word selection follows strict priority: (1) words never seen before, picked randomly from the curated word list; (2) words where <code>next_review ≤ today</code> and <code>srs_box &lt; 3</code>, ordered by most overdue; (3) least recently shown as a fallback. A <code>shown_today</code> guard prevents the same word appearing twice in one day.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Review intervals</div>
+          <p>When a word is shown, its box advances and the next review date is set to <code>today + 2^srs_box</code> days. Box 1 → +2 days, Box 2 → +4 days. Box 3 means the word is graduated and retired from active review. The <code>srs_feedback</code> table stores user responses (knew it / didn't) for future improvements.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">AlQuran Cloud API</div>
+          <p>A single <code>GET /ayah/{verse_ref}/editions/quran-simple,en.sahih,ur.maududi</code> call returns the verse simultaneously in three editions: Arabic (Uthmani script), English (Sahih International), and Urdu (Maududi). The audio URL for that verse's recitation is also returned and included in the email.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">LLM linguistic analysis</div>
+          <p>The prompt requests: the three-letter Arabic root (جذر), verb form on the Arabic scale (وزن, Forms I–X), primary meanings in English and Urdu, a root family showing other common words that share the same root, and a contextual explanation of how the specific word functions grammatically and thematically in the Quranic verse it appears in.</p>
+        </div>
+      </div>`
+    },
+    {
+      title: '// InboxCleaner — Technical Detail',
+      html: `<div class="drawer-grid cols-3">
+        <div class="drawer-block">
+          <div class="drawer-block-title">How Gmail categorises promotions</div>
+          <p>Gmail uses its own ML classifier to assign emails to <code>CATEGORY_PROMOTIONS</code> — a system label applied server-side before the email reaches your inbox. InboxCleaner simply queries this label directly with <code>labelIds=["CATEGORY_PROMOTIONS"]</code>, so no ML is needed on Cadence's side at all.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">Whitelist &amp; unsubscribe</div>
+          <p>The whitelist is stored in <code>INBOX_CLEANER_WHITELIST</code> in <code>.env</code>. When you click Whitelist on the dashboard, the backend writes directly to the <code>.env</code> file and updates <code>os.environ</code> in memory — no restart needed. The RFC 8058 unsubscribe sends an HTTP POST with body <code>List-Unsubscribe=One-Click</code> to the URL in the email's <code>List-Unsubscribe-Post</code> header.</p>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">No LLM required</div>
+          <p>InboxCleaner is the only agent that needs zero LLM calls. The logic is entirely rule-based: check label → check whitelist → trash. This means it runs in seconds rather than minutes and has no dependency on LM Studio being available. It shares the Gmail OAuth2 token with Mailman and runs the same <code>check_gmail_token()</code> health check before touching any emails.</p>
+        </div>
+      </div>`
+    },
+    {
+      title: '// Summary — Key Numbers',
+      html: `<div class="drawer-grid cols-3">
+        <div class="drawer-block">
+          <div class="drawer-block-title">At a glance</div>
+          <ul>
+            <li>6 agents (5 core + 1 bonus)</li>
+            <li>9 SQLite tables</li>
+            <li>0 cloud API costs — all LLM inference is local</li>
+            <li>1 LLM model — Qwen3-14B at 4-bit quantisation</li>
+            <li>~48GB RAM on MacBook Pro M5 Pro</li>
+            <li>Single <code>./start.sh</code> to launch everything</li>
+          </ul>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">LLM calls per day (typical)</div>
+          <ul>
+            <li>AI-Times: ~10–15 calls (1 per new video)</li>
+            <li>Mailman: ~20–40 calls (2 per new email × 10 emails)</li>
+            <li>Wallstreet Wolf: 1 call (weekdays only)</li>
+            <li>Arabic Word: 1 call</li>
+            <li>InboxCleaner: 0 calls</li>
+            <li><strong>Total: ~32–57 calls/day</strong></li>
+          </ul>
+        </div>
+        <div class="drawer-block">
+          <div class="drawer-block-title">What makes this assignment-worthy</div>
+          <ul>
+            <li>Real external API integrations (not mocked)</li>
+            <li>Genuine multi-agent coordination via shared queue</li>
+            <li>Spaced repetition learning system (SRS)</li>
+            <li>AI Observability dashboard with token tracking</li>
+            <li>Per-agent pause/resume with persistent state</li>
+            <li>RFC 8058 compliant one-click unsubscribe</li>
+          </ul>
+        </div>
+      </div>`
+    }
+  ];
+
+  // ── Slide navigation ────────────────────────────────────────────────────────
+  const dotsEl     = document.getElementById('dots');
+  const prevBtn    = document.getElementById('prevBtn');
+  const nextBtn    = document.getElementById('nextBtn');
+  const slideNumEl = document.getElementById('slideNum');
+  const detailBtn  = document.getElementById('detailBtn');
+  const drawer     = document.getElementById('detailDrawer');
+
+  for (let i = 0; i < TOTAL; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i === 0 ? ' active' : '');
+    d.onclick = () => goTo(i);
+    dotsEl.appendChild(d);
+  }
+
+  function goTo(n) {
+    if (n === current) return;
+    closeDetails();
+    const slides = document.querySelectorAll('.slide');
+    const oldIdx = current;
+    slides[oldIdx].classList.remove('active');
+    slides[oldIdx].classList.add('exit');
+    setTimeout(() => slides[oldIdx].classList.remove('exit'), 500);
+    current = n;
+    slides[current].classList.add('active');
+
+    // Restart animations
+    slides[current].querySelectorAll('.flow-step, .arch-box, .arch-agent-box, .arch-shared-box, .agent-pill, .final-card, .agent-output').forEach(el => {
+      el.style.animation = 'none';
+      void el.offsetWidth;
+      el.style.animation = '';
+    });
+
+    updateNav();
+  }
+
+  function navigate(dir) {
+    const next = current + dir;
+    if (next < 0 || next >= TOTAL) return;
+    goTo(next);
+  }
+
+  function updateNav() {
+    prevBtn.disabled = current === 0;
+    nextBtn.disabled = current === TOTAL - 1;
+    document.querySelectorAll('.dot').forEach((d, i) => d.classList.toggle('active', i === current));
+    slideNumEl.textContent = String(current + 1).padStart(2, '0') + ' / ' + String(TOTAL).padStart(2, '0');
+  }
+
+  // ── Detail drawer ───────────────────────────────────────────────────────────
+  function toggleDetails() {
+    if (drawerOpen) {
+      closeDetails();
+    } else {
+      openDetails();
+    }
+  }
+
+  function openDetails() {
+    const detail = DETAILS[current];
+    document.getElementById('drawerTitle').textContent = detail.title;
+    document.getElementById('drawerContent').innerHTML = detail.html;
+    drawer.classList.add('open');
+    detailBtn.classList.add('active');
+    drawerOpen = true;
+  }
+
+  function closeDetails() {
+    drawer.classList.remove('open');
+    detailBtn.classList.remove('active');
+    drawerOpen = false;
+  }
+
+  // Keyboard
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  navigate(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    navigate(-1);
+    if (e.key === 'd' || e.key === 'D')                   toggleDetails();
+    if (e.key === 'Escape')                               closeDetails();
+  });
+</script>
+</body>
+</html>
