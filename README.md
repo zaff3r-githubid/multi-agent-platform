@@ -79,7 +79,7 @@ API       API        │         Cloud API
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/multi-agent-platform.git
+git clone https://github.com/zaff3r-githubid/multi-agent-platform.git
 cd multi-agent-platform
 ```
 
@@ -130,6 +130,7 @@ DATABASE_URL=sqlite:///./platform.db
 DASHBOARD_PORT=8000
 KEY_PEOPLE=important@person.com
 ARABIC_DIFFICULTY=beginner
+INBOX_CLEANER_RUN_HOUR=2
 ```
 
 ### 7. Set up Gmail App Password
@@ -199,6 +200,8 @@ Open your browser at `http://localhost:8000`
 | **Mailman** | Category breakdown pie chart, classified email list with AI summaries |
 | **Wallstreet Wolf** | Top 5 gainers, top 5 losers, full 20+ stock watchlist |
 | **Arabic Word** | Today's word card, root family tree, verse in 3 languages, audio link, SRS progress |
+| **InboxCleaner** | Promotions sender list, unsubscribe links, repeat-sender stats |
+| **Leverage** | Top 5 most-watched AI deep-dive videos (Claude, ChatGPT, Gemini, DeepSeek etc.) — hidden by default, toggle on Overview |
 
 ### AI Observability
 
@@ -221,6 +224,8 @@ All inference stays local — this panel shows the savings from running Qwen3 on
 | Wallstreet Wolf | Mon–Fri at 06:30 UTC |
 | Arabic Word of the Day | Daily at 08:00 UTC |
 | Weekly Arabic Recap | Sundays at 09:00 UTC |
+| InboxCleaner | Daily at 02:00 UTC |
+| Leverage | Sundays + Wednesdays at 09:00 UTC |
 | Resource Monitor | Every 30 seconds |
 
 ### Manual Triggers
@@ -230,6 +235,8 @@ curl -X POST http://localhost:8000/api/agents/ai_times/run
 curl -X POST http://localhost:8000/api/agents/mailman/run
 curl -X POST http://localhost:8000/api/agents/wallstreet_wolf/run
 curl -X POST http://localhost:8000/api/agents/arabic_word/run
+curl -X POST http://localhost:8000/api/agents/inbox_cleaner/run
+curl -X POST http://localhost:8000/api/agents/leverage/run
 ```
 
 ---
@@ -268,7 +275,9 @@ multi-agent-platform/
 │   ├── ai_times.py
 │   ├── mailman.py
 │   ├── wallstreet_wolf.py
-│   └── arabic_word.py
+│   ├── arabic_word.py
+│   ├── inbox_cleaner.py
+│   └── leverage.py
 │
 ├── database/
 │   ├── models.py
@@ -281,6 +290,7 @@ multi-agent-platform/
 │   ├── llm_client.py
 │   ├── email_sender.py
 │   ├── gmail_auth.py
+│   ├── gmail_health.py
 │   └── arabic_word_lists.py
 │
 └── tests/
