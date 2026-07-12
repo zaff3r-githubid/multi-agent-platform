@@ -23,6 +23,10 @@ class BaseAgent(ABC):
     retry_attempts: int = 3     # How many times to retry after a crash
     retry_delay: int = 5        # Seconds to wait between retry attempts
 
+    # Shared across every agent instance — only one agent's _run_logic()
+    # executes at a time, not just their LLM calls.
+    _global_lock: asyncio.Lock = asyncio.Lock()
+
     def __init__(self):
         self._last_run: datetime | None = None
         self._last_status: str = "never_run"
@@ -69,35 +73,39 @@ class BaseAgent(ABC):
         self._last_status = "running"
         logger.info(f"[{self.name}] starting run")
 
-        # ── Retry loop ────────────────────────────────────────────────────────
-        for attempt in range(1, self.retry_attempts + 1):
-            try:
-                message = await self._run_logic()
-                # If we get here, the run succeeded
-                self._last_status = "success"
-                self._last_message = message
-                self._crash_count = 0
-                # Reset crash count on success
-                self._record(started, "success", message)
-                logger.info(f"[{self.name}] success — {message}")
-                break
-                # Break out of retry loop — no need to retry on success
+        # ── Global agent lock ────────────────────────────────────────────────
+        # Only one agent's _run_logic() executes at a time across the whole
+        # platform — waits here if another agent is mid-run.
+        async with BaseAgent._global_lock:
+            # ── Retry loop ────────────────────────────────────────────────────
+            for attempt in range(1, self.retry_attempts + 1):
+                try:
+                    message = await self._run_logic()
+                    # If we get here, the run succeeded
+                    self._last_status = "success"
+                    self._last_message = message
+                    self._crash_count = 0
+                    # Reset crash count on success
+                    self._record(started, "success", message)
+                    logger.info(f"[{self.name}] success — {message}")
+                    break
+                    # Break out of retry loop — no need to retry on success
 
-            except Exception as e:
-                logger.error(f"[{self.name}] attempt {attempt}/{self.retry_attempts} failed: {e}")
+                except Exception as e:
+                    logger.error(f"[{self.name}] attempt {attempt}/{self.retry_attempts} failed: {e}")
 
-                if attempt < self.retry_attempts:
-                    # Not the last attempt — wait and retry
-                    logger.info(f"[{self.name}] retrying in {self.retry_delay}s...")
-                    await asyncio.sleep(self.retry_delay)
-                else:
-                    # All attempts exhausted — record as error
-                    self._last_status = "error"
-                    self._last_message = str(e)
-                    self._crash_count += 1
-                    self._record(started, "error", str(e))
-                    logger.error(f"[{self.name}] all {self.retry_attempts} attempts failed. "
-                                 f"Crash count: {self._crash_count}")
+                    if attempt < self.retry_attempts:
+                        # Not the last attempt — wait and retry
+                        logger.info(f"[{self.name}] retrying in {self.retry_delay}s...")
+                        await asyncio.sleep(self.retry_delay)
+                    else:
+                        # All attempts exhausted — record as error
+                        self._last_status = "error"
+                        self._last_message = str(e)
+                        self._crash_count += 1
+                        self._record(started, "error", str(e))
+                        logger.error(f"[{self.name}] all {self.retry_attempts} attempts failed. "
+                                     f"Crash count: {self._crash_count}")
 
         self._last_run = started
         self._is_running = False

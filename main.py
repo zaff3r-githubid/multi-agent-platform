@@ -31,6 +31,8 @@ from agents.wallstreet_wolf import WallstreetWolf
 from agents.arabic_word import ArabicWordAgent
 from agents.inbox_cleaner import InboxCleaner
 from agents.leverage import Leverage
+from agents.ai_builder import AIBuilder
+from agents.woodworking import Woodworking
 
 # ── Instantiate all agents ────────────────────────────────────────────────────
 AGENTS = {
@@ -40,6 +42,8 @@ AGENTS = {
     "arabic_word":    ArabicWordAgent(),
     "inbox_cleaner":  InboxCleaner(),
     "leverage":       Leverage(),
+    "ai_builder":     AIBuilder(),
+    "woodworking":    Woodworking(),
 }
 
 scheduler = None
@@ -699,6 +703,41 @@ async def clear_leverage_videos():
         conn.execute("DELETE FROM leverage_videos")
         conn.commit()
     return {"status": "ok", "message": "Leverage video history cleared"}
+
+
+# ── AI Builder / Woodworking API (shared flat-list pattern) ───────────────────
+def _video_list_routes(table: str):
+    async def get_videos():
+        with get_conn() as conn:
+            rows = conn.execute(
+                f"SELECT video_id, title, channel, thumbnail, url, views, blurb, fetched_at"
+                f" FROM {table} ORDER BY views DESC, fetched_at DESC"
+            ).fetchall()
+        return [
+            {
+                "video_id":  r["video_id"], "title": r["title"], "channel": r["channel"],
+                "thumbnail": r["thumbnail"], "url": r["url"], "views": r["views"],
+                "blurb":     r["blurb"], "fetched_at": str(r["fetched_at"]),
+            }
+            for r in rows
+        ]
+
+    async def clear_videos():
+        with get_conn() as conn:
+            conn.execute(f"DELETE FROM {table}")
+            conn.commit()
+        return {"status": "ok", "message": f"{table} history cleared"}
+
+    return get_videos, clear_videos
+
+
+_ai_builder_get, _ai_builder_clear = _video_list_routes("ai_builder_videos")
+app.get("/api/ai_builder/videos")(_ai_builder_get)
+app.post("/api/ai_builder/clear")(_ai_builder_clear)
+
+_woodworking_get, _woodworking_clear = _video_list_routes("woodworking_videos")
+app.get("/api/woodworking/videos")(_woodworking_get)
+app.post("/api/woodworking/clear")(_woodworking_clear)
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

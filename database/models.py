@@ -122,6 +122,30 @@ CREATE TABLE IF NOT EXISTS leverage_videos (
     fetched_at  DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS ai_builder_videos (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id    TEXT UNIQUE,
+    title       TEXT,
+    channel     TEXT,
+    thumbnail   TEXT,
+    url         TEXT,
+    views       INTEGER DEFAULT 0,
+    blurb       TEXT,
+    fetched_at  DATETIME NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS woodworking_videos (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    video_id    TEXT UNIQUE,
+    title       TEXT,
+    channel     TEXT,
+    thumbnail   TEXT,
+    url         TEXT,
+    views       INTEGER DEFAULT 0,
+    blurb       TEXT,
+    fetched_at  DATETIME NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS inbox_cleaner_log (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
     run_date     DATE NOT NULL,

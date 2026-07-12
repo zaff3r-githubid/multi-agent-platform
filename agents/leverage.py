@@ -206,13 +206,14 @@ class Leverage(BaseAgent):
                                     f"Title: \"{video['title']}\"\n"
                                     f"Channel: {video['channel']}\n"
                                     f"Category: {cat_info['label']}\n\n"
-                                    "Write 2 sentences maximum.\n"
-                                    "Sentence 1: What specific AI tool or workflow does this video teach?\n"
-                                    "Sentence 2: What concrete skill or outcome will the viewer walk away with?\n\n"
+                                    "Write exactly 2 plain sentences, no labels or numbering.\n"
+                                    "First sentence: what specific AI tool or workflow this video teaches.\n"
+                                    "Second sentence: what concrete skill or outcome the viewer walks away with.\n\n"
                                     "Rules:\n"
                                     "- Be specific — name the actual tool if clear from the title\n"
                                     "- No hype words: avoid 'incredible', 'insane', 'game-changing', 'mind-blowing'\n"
                                     "- Do not invent features or capabilities not implied by the title\n"
+                                    "- Do not prefix sentences with 'Sentence 1', 'Sentence 2', or any label\n"
                                     "- Write in plain, professional English"
                                 ),
                                 system=(

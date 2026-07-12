@@ -101,6 +101,24 @@ def create_scheduler(agents: dict, resource_monitor_fn) -> AsyncIOScheduler:
         max_instances=1,
     )
 
+    # ── AI Builder — Tue + Fri at 10:00 UTC ──────────────────────────────────
+    scheduler.add_job(
+        agents["ai_builder"].run,
+        CronTrigger(day_of_week="tue,fri", hour=10, minute=0),
+        id="ai_builder",
+        name="AI Builder",
+        max_instances=1,
+    )
+
+    # ── Woodworking — Thursday at 11:00 UTC ──────────────────────────────────
+    scheduler.add_job(
+        agents["woodworking"].run,
+        CronTrigger(day_of_week="thu", hour=11, minute=0),
+        id="woodworking",
+        name="Woodworking",
+        max_instances=1,
+    )
+
     # ── DB cleanup — daily at midnight ───────────────────────────────────────
     from orchestrator.resource_monitor import cleanup_old_metrics
     scheduler.add_job(

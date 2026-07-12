@@ -821,6 +821,14 @@
        style="display:none;color:var(--green);border-bottom-color:transparent">
     🚀 Leverage
   </div>
+  <div class="tab"        id="tab-btn-ai_builder" onclick="switchTab('ai_builder')"
+       style="display:none;color:#60a5fa;border-bottom-color:transparent">
+    🛠️ AI Builder
+  </div>
+  <div class="tab"        id="tab-btn-woodworking" onclick="switchTab('woodworking')"
+       style="display:none;color:#b45309;border-bottom-color:transparent">
+    🪚 Woodworking
+  </div>
 </div>
 
 <!-- ════════════ TAB 1 — OVERVIEW ════════════════════════════════════════ -->
@@ -964,13 +972,65 @@
         Deep-dive AI tool videos · top 5 by impact · runs Sun &amp; Wed 09:00 UTC
       </div>
     </div>
-    <div class="theme-toggle" onclick="toggleLeverage()"
+    <div class="theme-toggle" onclick="toggleHideableTab('leverage','var(--green)')"
          title="Show/hide Leverage tab">
       <span class="toggle-label" id="leverage-toggle-label">HIDDEN</span>
       <div class="toggle-track" id="leverage-toggle-track"
            style="background:var(--bg-card-solid)">
         <div class="toggle-thumb" id="leverage-toggle-thumb"
              style="background:var(--green);transform:translateX(0)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── AI Builder Toggle ─────────────────────────────────────────────── -->
+  <div style="margin-top:12px;padding:16px 20px;
+              background:var(--bg-card);border:1px solid var(--border);
+              border-radius:8px;display:flex;align-items:center;
+              justify-content:space-between;gap:16px">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:#60a5fa;
+                  letter-spacing:0.08em;margin-bottom:4px">
+        🛠️ AI BUILDER — DIGITAL PRODUCTS
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary)">
+        AI-built digital products · top 5 by impact · runs Tue &amp; Fri 10:00 UTC
+      </div>
+    </div>
+    <div class="theme-toggle" onclick="toggleHideableTab('ai_builder','#60a5fa')"
+         title="Show/hide AI Builder tab">
+      <span class="toggle-label" id="ai_builder-toggle-label">HIDDEN</span>
+      <div class="toggle-track" id="ai_builder-toggle-track"
+           style="background:var(--bg-card-solid)">
+        <div class="toggle-thumb" id="ai_builder-toggle-thumb"
+             style="background:#60a5fa;transform:translateX(0)">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Woodworking Toggle ────────────────────────────────────────────── -->
+  <div style="margin-top:12px;padding:16px 20px;
+              background:var(--bg-card);border:1px solid var(--border);
+              border-radius:8px;display:flex;align-items:center;
+              justify-content:space-between;gap:16px">
+    <div>
+      <div style="font-size:12px;font-weight:700;color:#b45309;
+                  letter-spacing:0.08em;margin-bottom:4px">
+        🪚 WOODWORKING — KITCHEN CABINETS
+      </div>
+      <div style="font-size:11px;color:var(--text-secondary)">
+        Real project tutorials · top 5 by impact · runs Thu 11:00 UTC
+      </div>
+    </div>
+    <div class="theme-toggle" onclick="toggleHideableTab('woodworking','#b45309')"
+         title="Show/hide Woodworking tab">
+      <span class="toggle-label" id="woodworking-toggle-label">HIDDEN</span>
+      <div class="toggle-track" id="woodworking-toggle-track"
+           style="background:var(--bg-card-solid)">
+        <div class="toggle-thumb" id="woodworking-toggle-thumb"
+             style="background:#b45309;transform:translateX(0)">
         </div>
       </div>
     </div>
@@ -1200,6 +1260,76 @@
 
 </div>
 
+<!-- ════════════ TAB — AI BUILDER (hidden by default) ═══════════════════ -->
+<div id="tab-ai_builder" class="panel">
+
+  <div class="section-header">
+    <div>
+      <div class="section-title">🛠️ AI Builder — Digital Products</div>
+      <div class="section-sub">
+        Top 5 most-watched AI-built digital product videos · Tue &amp; Fri 10:00 UTC
+      </div>
+    </div>
+    <button class="run-btn" onclick="triggerAgent('ai_builder')"
+            style="border-color:#60a5fa;color:#60a5fa">
+      ▶ Run Now
+    </button>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="color:#60a5fa">🛠️ AI-Built Digital Products</h3>
+      <span style="font-size:10px;color:var(--text-dim);letter-spacing:.08em">
+        TOP 5 · SORTED BY VIEW COUNT
+      </span>
+    </div>
+    <div id="ab-videos"><div class="empty">Run AI Builder to load videos</div></div>
+  </div>
+
+  <div style="text-align:right;margin-top:4px">
+    <button class="run-btn" onclick="clearVideoTab('/api/ai_builder/clear','/api/ai_builder/videos','ab-videos')"
+            style="border-color:var(--text-dim);color:var(--text-dim);font-size:11px">
+      🗑 Clear Video History
+    </button>
+  </div>
+
+</div>
+
+<!-- ════════════ TAB — WOODWORKING (hidden by default) ══════════════════ -->
+<div id="tab-woodworking" class="panel">
+
+  <div class="section-header">
+    <div>
+      <div class="section-title">🪚 Woodworking — Kitchen Cabinets</div>
+      <div class="section-sub">
+        Top 5 real project tutorials — builds, painting, installation · Thu 11:00 UTC
+      </div>
+    </div>
+    <button class="run-btn" onclick="triggerAgent('woodworking')"
+            style="border-color:#b45309;color:#b45309">
+      ▶ Run Now
+    </button>
+  </div>
+
+  <div class="card" style="margin-bottom:18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h3 style="color:#b45309">🪚 Real Woodworking Projects</h3>
+      <span style="font-size:10px;color:var(--text-dim);letter-spacing:.08em">
+        TOP 5 · SORTED BY VIEW COUNT
+      </span>
+    </div>
+    <div id="wood-videos"><div class="empty">Run Woodworking to load videos</div></div>
+  </div>
+
+  <div style="text-align:right;margin-top:4px">
+    <button class="run-btn" onclick="clearVideoTab('/api/woodworking/clear','/api/woodworking/videos','wood-videos')"
+            style="border-color:var(--text-dim);color:var(--text-dim);font-size:11px">
+      🗑 Clear Video History
+    </button>
+  </div>
+
+</div>
+
 <!-- ════════════════════════════════════════════════════════════════════════ -->
 <!-- JavaScript                                                               -->
 <!-- ════════════════════════════════════════════════════════════════════════ -->
@@ -1255,34 +1385,30 @@
     }
   }
 
-  // ── Leverage tab toggle ──────────────────────────────────────────────────
-  function toggleLeverage() {
-    const tab   = document.getElementById('tab-btn-leverage');
-    const thumb = document.getElementById('leverage-toggle-thumb');
-    const label = document.getElementById('leverage-toggle-label');
-    const track = document.getElementById('leverage-toggle-track');
+  // ── Generic hideable-tab toggle (Leverage, AI Builder, Woodworking) ─────────
+  function toggleHideableTab(name, color) {
+    const tab   = document.getElementById('tab-btn-' + name);
+    const thumb = document.getElementById(name + '-toggle-thumb');
+    const label = document.getElementById(name + '-toggle-label');
+    const track = document.getElementById(name + '-toggle-track');
     const visible = tab.style.display === 'none' || tab.style.display === '';
     tab.style.display      = visible ? 'block' : 'none';
     thumb.style.transform  = visible ? 'translateX(20px)' : 'translateX(0)';
     label.textContent      = visible ? 'VISIBLE' : 'HIDDEN';
-    track.style.borderColor = visible ? 'var(--green)' : '';
-    localStorage.setItem('leverageVisible', visible);
-    if (!visible && document.getElementById('tab-leverage').classList.contains('active')) {
+    track.style.borderColor = visible ? color : '';
+    localStorage.setItem(name + 'Visible', visible);
+    if (!visible && document.getElementById('tab-' + name).classList.contains('active')) {
       switchTab('overview');
     }
   }
 
-  function restoreLeverageToggle() {
-    const visible = localStorage.getItem('leverageVisible') === 'true';
+  function restoreHideableTab(name, color) {
+    const visible = localStorage.getItem(name + 'Visible') === 'true';
     if (visible) {
-      const tab   = document.getElementById('tab-btn-leverage');
-      const thumb = document.getElementById('leverage-toggle-thumb');
-      const label = document.getElementById('leverage-toggle-label');
-      const track = document.getElementById('leverage-toggle-track');
-      tab.style.display      = 'block';
-      thumb.style.transform  = 'translateX(20px)';
-      track.style.borderColor = 'var(--green)';
-      label.textContent      = 'VISIBLE';
+      document.getElementById('tab-btn-' + name).style.display = 'block';
+      document.getElementById(name + '-toggle-thumb').style.transform = 'translateX(20px)';
+      document.getElementById(name + '-toggle-track').style.borderColor = color;
+      document.getElementById(name + '-toggle-label').textContent = 'VISIBLE';
     }
   }
 
@@ -1297,6 +1423,8 @@
     if (name === 'arabic')    fetchArabic();
     if (name === 'inbox')     fetchInboxCleaner();
     if (name === 'leverage')  fetchLeverage();
+    if (name === 'ai_builder')  fetchVideoTab('/api/ai_builder/videos', 'ab-videos');
+    if (name === 'woodworking') fetchVideoTab('/api/woodworking/videos', 'wood-videos');
   }
 
   function badge(status) {
@@ -1671,6 +1799,12 @@
     if (document.getElementById('tab-leverage').classList.contains('active')) {
       fetchLeverage();
     }
+    if (document.getElementById('tab-ai_builder').classList.contains('active')) {
+      fetchVideoTab('/api/ai_builder/videos', 'ab-videos');
+    }
+    if (document.getElementById('tab-woodworking').classList.contains('active')) {
+      fetchVideoTab('/api/woodworking/videos', 'wood-videos');
+    }
   }, 30000);
 
   const saved = localStorage.getItem('arabic_difficulty');
@@ -1977,7 +2111,9 @@
 
   // Restore toggle states on page load
   restoreInboxToggle();
-  restoreLeverageToggle();
+  restoreHideableTab('leverage', 'var(--green)');
+  restoreHideableTab('ai_builder', '#60a5fa');
+  restoreHideableTab('woodworking', '#b45309');
 
   // ── InboxCleaner ──────────────────────────────────────────────────────────
   async function fetchInboxCleaner() {
@@ -2141,6 +2277,53 @@
     if (!confirm('Clear all Leverage video history? The next run will fetch fresh videos.')) return;
     await fetch('/api/leverage/clear', { method: 'POST' });
     fetchLeverage();
+  }
+
+  // ── Generic flat-list video tab (AI Builder, Woodworking) ───────────────────
+  async function fetchVideoTab(apiUrl, elId) {
+    try {
+      const videos = await (await fetch(apiUrl)).json();
+      const el = document.getElementById(elId);
+      const accent = elId === 'ab-videos' ? '#60a5fa' : '#b45309';
+      if (!videos.length) {
+        el.innerHTML = '<div class="empty">No videos yet — run agent to fetch</div>';
+        return;
+      }
+      el.innerHTML = videos.map(v => `
+        <div style="display:flex;gap:12px;align-items:flex-start;
+                    padding:12px;border:1px solid var(--border);
+                    border-left:3px solid ${accent};
+                    border-radius:8px;margin-bottom:10px;
+                    background:var(--bg-card)">
+          <img src="${v.thumbnail}" alt=""
+               style="width:120px;height:68px;object-fit:cover;
+                      border-radius:6px;flex-shrink:0">
+          <div style="flex:1;min-width:0">
+            <a href="${v.url}" target="_blank"
+               style="font-size:12px;font-weight:700;color:var(--text-primary);
+                      text-decoration:none;display:block;margin-bottom:4px;
+                      white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+              ${v.title}
+            </a>
+            <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
+              <span style="font-size:10px;color:var(--text-dim)">${v.channel}</span>
+              <span style="font-size:10px;padding:1px 8px;border-radius:10px;
+                           background:${accent}18;color:${accent};font-weight:600">
+                👁 ${Number(v.views).toLocaleString()} views
+              </span>
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);line-height:1.5">
+              ${v.blurb || ''}
+            </div>
+          </div>
+        </div>`).join('');
+    } catch(e) { console.error(`${apiUrl} fetch failed:`, e); }
+  }
+
+  async function clearVideoTab(apiClearUrl, apiUrl, elId) {
+    if (!confirm('Clear video history? The next run will fetch fresh videos.')) return;
+    await fetch(apiClearUrl, { method: 'POST' });
+    fetchVideoTab(apiUrl, elId);
   }
 </script>
 </body>
